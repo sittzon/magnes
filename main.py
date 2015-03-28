@@ -11,17 +11,7 @@ class PpuR2C02:
         self.spriteArray = []
 
 class CpuR2A03:
-	
-    #Opcodes
-    
     #mnenmonics
-    
-    #Memory - 2kB
-    #ramSize = 2*1024
-    #ram = [0]*ramSize
-    
-    #Program counter
-    #PC = 0
     
     #Clock
     #Clocked 1.789773Mhz for NTSC (System 21.47727Mhz / 12) and 
@@ -29,15 +19,17 @@ class CpuR2A03:
     clockHertz = 1.773447*1000000 #PAL
     
     def __init__(self):
+        #Program counter
         self.PC = 0
+    
+        #Memory - 2kB
         self.ramSize = 2*1024
         self.ram = [0]*self.ramSize
         
-        # Setup opcodes
+        # OPcodes
         self.ops = {
             0 : self.opCode0
         }
-        pass
 
     def run(self):
         i = 0
