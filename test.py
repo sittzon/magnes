@@ -10,6 +10,7 @@ class Main:
 
     def start(self, filename):
         print("Starting " + filename)
+        self.cpu.load(filename)
         self.cpu.run()
 
 mainInstance = Main()
