@@ -9,7 +9,7 @@ class CpuR2A03:
     self.ramSize = 2*1024
     self.ram = [0]*self.ramSize
     self.ram[2] = 0x01
-    self.ram[5] = 0xA1
+    self.ram[5] = 0xA9
 
     #Registers
     self.regA = 0 #Accumulator register, 8 bit
@@ -35,8 +35,26 @@ class CpuR2A03:
     
   def load(self, filename):
     print("Loading " + filename + " ...")
+    tempRam = [0]*self.ramSize
+    f = open(filename, 'rb')
+    try:
+      byte = f.read(1)
+      for i in range(0,50):#while byte != "":
+        #Do something with byte
+        print("0x%(byte)s" % {"byte":byte.encode("hex")}),
+        #self.ram[i] = int(byte.encode("hex"), 16)
+        tempRam[i] = int(byte.encode("hex"), 16)
+        byte = f.read(1)
+    finally:
+      f.close()
+      
+    #Verify 'NES'
+    if tempRam[0] != 0x4e and tempRam[0] != 0x45 and tempRam[0] != 0x53:
+      print("Not a 'NES' file")
+    #else :
+    #  self.ram = tempRam
+      
     print("Loading complete.")
-    #print(self.ops)
 
   def run(self):
     i = 0

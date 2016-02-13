@@ -9,9 +9,9 @@ class Main:
         self.cpu = cpu.CpuR2A03()
 
     def start(self, filename):
-        print("Starting " + filename)
+        #print("Starting " + filename)
         self.cpu.load(filename)
         self.cpu.run()
 
 mainInstance = Main()
-mainInstance.start('something.nes')
+mainInstance.start('The Legend of Zelda (Europe).nes')
