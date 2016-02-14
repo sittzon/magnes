@@ -29,6 +29,14 @@ class CpuR2A03:
     self.ops = {
       '0x00' : self.BRK,
       '0x01' : self.ORA,
+      '0x05' : self.ORA,
+      '0x06' : self.ASL,
+      '0x08' : self.PHP,
+      '0x09' : self.ORA,
+      '0x0a' : self.ASL,
+      '0x18' : self.CLC,
+      '0x4d' : self.RTS,
+      '0x85' : self.STA,
       '0xa1' : self.LDA,
       '0xa5' : self.LDA,
       '0xa9' : self.LDA,
@@ -36,7 +44,8 @@ class CpuR2A03:
       '0xb1' : self.LDA,
       '0xb5' : self.LDA,
       '0xb9' : self.LDA,
-      '0xbd' : self.LDA
+      '0xbd' : self.LDA,
+      '0x4c' : self.JMP
     }
     
   def load(self, filename):
@@ -110,7 +119,29 @@ class CpuR2A03:
     #SET_ZERO(Operand);            // Sets the Zero Flag if the Operand is $#00, otherwise clears it.
     #self.regP = self.regP & 
     #ACCUMULATOR = Operand;        // Stores the Operand in the Accumulator Register.
-    #self.regA = 
+    #self.regA =
+
+  def ASL(self):
+    pass
+
+  def PHP(self):
+    pass
+
+  #Jump to subroutine
+  def JMP(self):
+      pass
+
+  #Clear carry flag
+  def CLC(self):
+    pass
+
+  #Return to calling subroutine
+  def RTS(self):
+    pass
+
+  #Store accumulator into memory location (operand)
+  def STA(self):
+    pass
 
   #LDA (LoaD Accumulator)
   #Affects Flags: S Z
@@ -122,7 +153,7 @@ class CpuR2A03:
     elif self.operation == '0xa9': #Immediatate
       self.PC += 1
       operand = self.ram[self.PC]
-      if operand > 0x7f :
+      if operand > 0x7f : #Negative
         pass
         #self.regP |= 0x70
       self.regA = operand
@@ -137,3 +168,4 @@ class CpuR2A03:
     elif self.operation == '0xbd': #Absolute, X
       pass
     pass
+
