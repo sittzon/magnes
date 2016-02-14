@@ -34,7 +34,47 @@ class CpuR2A03:
       '0x08' : self.PHP,
       '0x09' : self.ORA,
       '0x0a' : self.ASL,
+      '0x0d' : self.ORA,
+      '0x0e' : self.ASL,
+      '0x10' : self.BPL,
+      '0x15' : self.ORA,
+      '0x16' : self.ASL,
       '0x18' : self.CLC,
+      '0x19' : self.ORA,
+      '0x1d' : self.ORA,
+      '0x1e' : self.ASL,
+      '0x20' : self.JSR,
+      '0x21' : self.AND,
+      '0x24' : self.BIT,
+      '0x25' : self.AND,
+      '0x26' : self.ROL,
+      '0x28' : self.PLP,
+      '0x29' : self.AND,
+      '0x2a' : self.ROL,
+      '0x2c' : self.BIT,
+      '0x2d' : self.AND,
+      '0x2e' : self.ROL,
+      '0x30' : self.BMI,
+      '0x31' : self.AND,
+      '0x35' : self.AND,
+      '0x36' : self.ROL,
+      '0x38' : self.SEC,
+      '0x39' : self.AND,
+      '0x3d' : self.AND,
+      '0x3e' : self.ROL,
+      '0x40' : self.RTI,
+      '0x41' : self.EOR,
+      '0x45' : self.EOR,
+      '0x46' : self.LSR,
+      '0x48' : self.PHA,
+      '0x49' : self.EOR,
+      '0x4a' : self.LSR,
+      '0x4c' : self.JMP,
+      '0x4d' : self.EOR,
+      '0x4e' : self.LSR,
+      '0x50' : self.BVC,
+      '0x55' : self.EOR,
+
       '0x4d' : self.RTS,
       '0x85' : self.STA,
       '0xa1' : self.LDA,
@@ -78,15 +118,15 @@ class CpuR2A03:
     while (i < 16):
       #Fetch opcode
       self.currentOP = self.ram[self.PC]
-      self.mode = 0
-      self.operand = 0
+      #self.mode = 0
+      #self.operand = 0
 
       #Execute Opcode
-      function_name = self.ops[format(self.currentOP, '#04x')].__name__
-      print("%(pc)08d:%(op)02x %(mnen)s" % {"pc":self.PC, "op":self.currentOP, "mnen":function_name}),
+      op_name = self.ops[format(self.currentOP, '#04x')].__name__
+      print("%(pc)08d:%(op)02x %(mnen)s" % {"pc":self.PC, "op":self.currentOP, "mnen":op_name}),
       self.printRegisters()
-      self.operation = format(self.currentOP, '#04x')
-      self.ops[self.operation]()
+      self.opcode = format(self.currentOP, '#04x')
+      self.ops[self.opcode]()
 
       #Increase Program Counter
       self.PC += 1
@@ -103,15 +143,13 @@ class CpuR2A03:
   #BRK (BReaK)
   #Affects Flags: B
   #Mode: Implied
-  #HEX: 0x00
   def BRK(self):
     self.PC += 1;
-    self.regP |= 0x10 #0001 0000
+    self.regP |= 0x10
 
   #ORA (Or Memory With Accumulator)
   #Affects Flags: S Z
   #Performs logical OR on operand and accumulator, stores result in accumulator
-  #Mode: Indirect
   def ORA(self):
     pass
     #Operand |= ACCUMULATOR        // OR the two values together.
@@ -124,12 +162,48 @@ class CpuR2A03:
   def ASL(self):
     pass
 
+  def BPL(self):
+    pass
+
   def PHP(self):
     pass
 
   #Jump to subroutine
   def JMP(self):
-      pass
+    pass
+
+  def JSR(self):
+    pass
+
+  def AND(self):
+    pass
+
+  def BIT(self):
+    pass
+
+  def ROL(self):
+    pass
+
+  def SEC(self):
+    pass
+
+  def EOR(self):
+    pass
+
+  def PLP(self):
+    pass
+
+  def BMI(self):
+    pass
+
+  def LSR(self):
+    pass
+
+  def PHA(self):
+    pass
+
+  def BVC(self):
+    pass
 
   #Clear carry flag
   def CLC(self):
@@ -139,6 +213,9 @@ class CpuR2A03:
   def RTS(self):
     pass
 
+  def RTI(self):
+    pass
+
   #Store accumulator into memory location (operand)
   def STA(self):
     pass
@@ -146,26 +223,26 @@ class CpuR2A03:
   #LDA (LoaD Accumulator)
   #Affects Flags: S Z
   def LDA(self):
-    if self.operation == '0xa1': #Indirect, x
+    if self.opcode == '0xa1': #Indirect, x
       pass
-    elif self.operation == '0xa5': #Zero page
+    elif self.opcode == '0xa5': #Zero page
       pass
-    elif self.operation == '0xa9': #Immediatate
+    elif self.opcode == '0xa9': #Immediatate
       self.PC += 1
       operand = self.ram[self.PC]
       if operand > 0x7f : #Negative
         pass
         #self.regP |= 0x70
       self.regA = operand
-    elif self.operation == '0xad': #Absolute
+    elif self.opcode == '0xad': #Absolute
       pass
-    elif self.operation == '0xb1': #Indirect, Y
+    elif self.opcode == '0xb1': #Indirect, Y
       pass
-    elif self.operation == '0xb5': #Zero page, X
+    elif self.opcode == '0xb5': #Zero page, X
       pass
-    elif self.operation == '0xb9': #Absolute, Y
+    elif self.opcode == '0xb9': #Absolute, Y
       pass
-    elif self.operation == '0xbd': #Absolute, X
+    elif self.opcode == '0xbd': #Absolute, X
       pass
     pass
 
