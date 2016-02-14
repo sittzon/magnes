@@ -1,22 +1,28 @@
 class CpuR2A03:
-  #Clock
-  #Clocked 1.789773Mhz for NTSC (System 21.47727Mhz / 12) and 
-  #1.773447Mhz for PAL (System 26.601171Mhz / 15)
-  clockHertz = 1.773447*1000000 #PAL
-    
   def __init__(self):
+    #Clock
+    #Clocked 1.789773Mhz for NTSC (System 21.47727Mhz / 12) and
+    #1.773447Mhz for PAL (System 26.601171Mhz / 15)
+    clockHertz = 1.773447*1000000 #PAL
+
     #Memory - 2kB
     self.ramSize = 2*1024
     self.ram = [0]*self.ramSize
     self.ram[2] = 0x01
-    self.ram[5] = 0xA9
+    self.ram[5] = 0xa9
+    self.ram[6] = 0xff
 
     #Registers
     self.regA = 0 #Accumulator register, 8 bit
     self.regX = 0 #Index register 1, 8 bit
     self.regY = 0 #Index register 2, 8 bit
     self.regS = 0 #Stack pointer, 8 bit
-    self.regP = 0 #Processor status flag bits, (N)egative,(O)Verflow,(B)inary,I,(Z)ero,(C)arry
+    #bit ->   7                           0
+    #       +---+---+---+---+---+---+---+---+
+    #       | N | V |   | B | D | I | Z | C |  <-- flag, 0/1 = reset/set
+    #       +---+---+---+---+---+---+---+---+
+    #(N)egative, O(V)erflow, (B)inary, (D)ecimal, (I)nterrupt, (Z)ero, (C)arry
+    self.regP = 0 #Processor status flag bits
     self.PC = 0 #Program counter, 16 bit
         
     # OPcodes
@@ -39,7 +45,7 @@ class CpuR2A03:
     f = open(filename, 'rb')
     try:
       byte = f.read(1)
-      for i in range(0,50):#while byte != "":
+      for i in range(0,64):#while byte != "":
         #Do something with byte
         print("0x%(byte)s" % {"byte":byte.encode("hex")}),
         #self.ram[i] = int(byte.encode("hex"), 16)
@@ -47,12 +53,14 @@ class CpuR2A03:
         byte = f.read(1)
     finally:
       f.close()
+    print("")
       
     #Verify 'NES'
     if tempRam[0] != 0x4e and tempRam[0] != 0x45 and tempRam[0] != 0x53:
-      print("Not a 'NES' file")
-    #else :
-    #  self.ram = tempRam
+      print("Not a 'NES' file! Loading incorrect")
+    else :
+      print("Identified 'NES' file")
+    #self.ram = tempRam
       
     print("Loading complete.")
 
@@ -68,13 +76,16 @@ class CpuR2A03:
       function_name = self.ops[format(self.currentOP, '#04x')].__name__
       print("%(pc)08d:%(op)02x %(mnen)s" % {"pc":self.PC, "op":self.currentOP, "mnen":function_name}),
       self.printRegisters()
-      self.ops[format(self.currentOP, '#04x')]()
+      self.operation = format(self.currentOP, '#04x')
+      self.ops[self.operation]()
 
       #Increase Program Counter
       self.PC += 1
-      i += 1
       if (self.PC > self.ramSize):
         self.PC = 0
+
+
+      i += 1
         
   def printRegisters(self):
     print('(PC:%(pc)2x, regA:%(ra)2x, regX:%(rx)2x, regY:%(ry)2x, regS:%(rs)2x, regP:%(rp)2x' %\
@@ -86,7 +97,7 @@ class CpuR2A03:
   #HEX: 0x00
   def BRK(self):
     self.PC += 1;
-#    self.P |= 
+    self.regP |= 0x10 #0001 0000
 
   #ORA (Or Memory With Accumulator)
   #Affects Flags: S Z
@@ -104,4 +115,25 @@ class CpuR2A03:
   #LDA (LoaD Accumulator)
   #Affects Flags: S Z
   def LDA(self):
+    if self.operation == '0xa1': #Indirect, x
+      pass
+    elif self.operation == '0xa5': #Zero page
+      pass
+    elif self.operation == '0xa9': #Immediatate
+      self.PC += 1
+      operand = self.ram[self.PC]
+      if operand > 0x7f :
+        pass
+        #self.regP |= 0x70
+      self.regA = operand
+    elif self.operation == '0xad': #Absolute
+      pass
+    elif self.operation == '0xb1': #Indirect, Y
+      pass
+    elif self.operation == '0xb5': #Zero page, X
+      pass
+    elif self.operation == '0xb9': #Absolute, Y
+      pass
+    elif self.operation == '0xbd': #Absolute, X
+      pass
     pass

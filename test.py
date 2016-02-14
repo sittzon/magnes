@@ -3,9 +3,9 @@ import ppu
 
 class Main:
     def __init__(self):
-        print("Init PPU...")
+        #print("Init PPU...")
         self.ppu = ppu.PpuR2C02()
-        print("Init CPU...")
+        #print("Init CPU...")
         self.cpu = cpu.CpuR2A03()
 
     def start(self, filename):
@@ -14,4 +14,4 @@ class Main:
         self.cpu.run()
 
 mainInstance = Main()
-mainInstance.start('The Legend of Zelda (Europe).nes')
+mainInstance.start('Excitebike (Eur).nes')
