@@ -10,20 +10,17 @@ class CpuR2A03:
     self.ram = [0]*self.ramSize
     self.ram[2] = 0x01
     self.ram[3] = 0x06
-    self.ram[5] = 0xa9
-    self.ram[6] = 0xff
+    self.ram[5] = 0xa5
+    self.ram[6] = 0x03
+    self.ram[7] = 0xa9
+    self.ram[8] = 0xab
 
     #Registers
     self.regA = 0 #Accumulator register, 8 bit
     self.regX = 0 #Index register 1, 8 bit
     self.regY = 0 #Index register 2, 8 bit
     self.regS = 0 #Stack pointer, 8 bit
-    #bit ->   7                           0
-    #       +---+---+---+---+---+---+---+---+
-    #       | N | V |   | B | D | I | Z | C |  <-- flag, 0/1 = reset/set
-    #       +---+---+---+---+---+---+---+---+
-    #(N)egative, O(V)erflow, (B)inary, (D)ecimal, (I)nterrupt, (Z)ero, (C)arry
-    self.regP = 0 #Processor status flag bits
+    self.regP = 0 #Processor status flag bits, 8 bit
     self.PC = 0 #Program counter, 16 bit
         
     # OPcodes
@@ -200,22 +197,25 @@ class CpuR2A03:
       print("Not a 'NES' file! Loading incorrect")
     else:
       print("Identified 'NES' file")
-      #self.ram = tempRam
+      #for i in tempRam:
+      #  self.ram[i] = tempRam[i+16]
       
     print("Loading complete.")
 
   def run(self):
     i = 0
     while (i < 16):
-      #Fetch opcode and print current opcode and register info
+      #Fetch opcode, print current opcode
       self.currentOpcode = self.ram[self.PC]
       print("%(pc)08d:%(op)02x" % {"pc":self.PC, "op":self.currentOpcode}),
-      mnemonic = self.ops[format(self.currentOpcode, '#04x')].__name__
-      print("%(mnem)s" % {"mnem":mnemonic}),
-      self.printRegisters()
 
       #Execute Opcode
       self.ops[format(self.currentOpcode, '#04x')]()
+
+      ##Print mnemonice and registers
+      mnemonic = self.ops[format(self.currentOpcode, '#04x')].__name__
+      print("     %(mnem)s" % {"mnem":mnemonic}),
+      self.printRegisters()
 
       #Increase Program Counter
       self.PC += 1
@@ -227,24 +227,74 @@ class CpuR2A03:
     print('(PC:%(pc)04x, regA:%(ra)02x, regX:%(rx)02x, regY:%(ry)02x, regS:%(rs)02x, regP:%(rp)02x' %\
           {"pc":self.PC, "ra":self.regA, "rx":self.regX, "ry":self.regY, "rs":self.regS, "rp":self.regP})
 
-  #BRK (BReaK)
-  #Affects Flags: B
-  #Mode: Implied
-  def BRK(self):
-    #self.PC += 1;
-    self.regP |= 0x10
+  def getImmediateOperand(self):
+    operand = self.ram[self.PC]
+    print("#$" + format(operand, "02x")),
+    return operand
 
-  #ORA (Or Memory With Accumulator)
-  #Affects Flags: S Z
-  #Performs logical OR on operand and accumulator, stores result in accumulator
+  def getZeroPageOperand(self):
+    adress = self.ram[self.PC]
+    operand = self.ram[adress]
+    print("$" + format(adress, "02x")),
+    return operand
+
+  def getZeroPageXOperand(self, adress):
+    pass
+
+  def getAbsoluteOperand(self, adress):
+    pass
+
+  def getAbsoluteXOperand(self, adress):
+    pass
+
+  def getAbsoluteYOperand(self, adress):
+    pass
+
+  def getIndirectXOperand(self, adress):
+    pass
+
+  def getIndirectYOperand(self, adress):
+    pass
+
+  #bit ->   7                           0
+  #       +---+---+---+---+---+---+---+---+
+  #       | N | V |   | B | D | I | Z | C |  <-- flag, 0/1 = reset/set
+  #       +---+---+---+---+---+---+---+---+
+  #(N)egative, O(V)erflow, (B)inary, (D)ecimal, (I)nterrupt, (Z)ero, (C)arry
+  def setNegativeFlag(self):
+    self.regP |= 0x80
+  def clearNegativeFlag(self):
+    self.regP &= 0x7f
+  def setOverflowFlag(self):
+    self.regP |= 0x40
+  def clearOverflowFlag(self):
+    self.regP &= 0xbf
+  def setBinaryFlag(self):
+    self.regP |= 0x10
+  def clearBinaryFlag(self):
+    self.regP &= 0xef
+  def setDecimalFlag(self):
+    self.regP |= 0x08
+  def clearDecimalFlag(self):
+    self.regP &= 0xf7
+  def setInterruptFlag(self):
+    self.regP |= 0x04
+  def clearInterruptFlag(self):
+    self.regP &= 0xfb
+  def setZeroFlag(self):
+    self.regP |= 0x02
+  def clearZeroFlag(self):
+    self.regP &= 0xfc
+  def setCarryFlag(self):
+    self.regP |= 0x01
+  def clearCarryFlag(self):
+    self.regP &= 0xfe
+
+  def BRK(self):
+    self.setBinaryFlag()
+
   def ORA(self):
     pass
-    #Operand |= ACCUMULATOR        // OR the two values together.
-    #SET_NEGATIVE(Operand);        // Clears the Negative Flag if the Operand is $#00-7F, otherwise sets it.
-    #SET_ZERO(Operand);            // Sets the Zero Flag if the Operand is $#00, otherwise clears it.
-    #self.regP = self.regP & 
-    #ACCUMULATOR = Operand;        // Stores the Operand in the Accumulator Register.
-    #self.regA =
 
   def ASL(self):
     pass
@@ -348,7 +398,7 @@ class CpuR2A03:
   
   #Clear carry flag
   def CLC(self):
-    pass
+    self.regP &= 0xfe
 
   #Return to calling subroutine
   def RTS(self):
@@ -364,29 +414,36 @@ class CpuR2A03:
   #LDA (LoaD Accumulator)
   #Affects Flags: S Z
   def LDA(self):
+    self.PC += 1
     if self.currentOpcode == 0xa1: #Indirect, x
-      pass
+      self.regA = self.getIndirectXOperand()
     elif self.currentOpcode == 0xa5: #Zero page
-      pass
+      self.regA = self.getZeroPageOperand()
     elif self.currentOpcode == 0xa9: #Immediate
-      self.PC += 1
-      operand = self.ram[self.PC]
-      if operand > 0x7f : #Negative
-        pass
-        #self.regP |= 0x70
-      self.regA = operand
+      self.regA = self.getImmediateOperand()
     elif self.currentOpcode == 0xad: #Absolute
-      pass
+      self.regA = self.getAbsoluteOperand()
     elif self.currentOpcode == 0xb1: #Indirect, Y
-      pass
+      self.regA = self.getIndirectYOperand()
     elif self.currentOpcode == 0xb5: #Zero page, X
-      pass
+      self.regA = self.getZeroPageXOperand()
     elif self.currentOpcode == 0xb9: #Absolute, Y
-      pass
+      self.regA = self.getAbsoluteYOperand()
     elif self.currentOpcode == 0xbd: #Absolute, X
-      pass
-    pass
-  
+      self.regA = self.getAbsoluteXOperand()
+
+    #Check if operand is negative
+    if self.regA > 0x7f:
+      self.setNegativeFlag()
+    else:
+      self.clearNegativeFlag()
+
+    #Check if operand is zero
+    if self.regA == 0x00:
+      self.setZeroFlag()
+    else:
+      self.clearZeroFlag()
+
   def BCS(self):
     pass
   
