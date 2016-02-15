@@ -8,12 +8,14 @@ class CpuR2A03:
     #Memory - 2kB
     self.ramSize = 2*1024
     self.ram = [0]*self.ramSize
-    self.ram[2] = 0x01
-    self.ram[3] = 0x06
     self.ram[5] = 0xa5
     self.ram[6] = 0x03
     self.ram[7] = 0xa9
-    self.ram[8] = 0xab
+    self.ram[8] = 0xaa
+    self.ram[9] = 0xa2
+    self.ram[10] = 0xab
+    self.ram[11] = 0xa0
+    self.ram[12] = 0xcf
 
     #Registers
     self.regA = 0 #Accumulator register, 8 bit
@@ -112,29 +114,29 @@ class CpuR2A03:
       '0x99' : self.STA,
       '0x9a' : self.TXS,
       '0x9c' : self.STA,
-      '0xa0' : self.LDY,
-      '0xa1' : self.LDA,
-      '0xa2' : self.LDX,
-      '0xa4' : self.LDY,
-      '0xa5' : self.LDA,
-      '0xa6' : self.LDX,
+      '0xa0' : self.LDY_IMM,
+      '0xa1' : self.LDA_INDX,
+      '0xa2' : self.LDX_IMM,
+      '0xa4' : self.LDY_ZP,
+      '0xa5' : self.LDA_ZP,
+      '0xa6' : self.LDX_ZP,
       '0xa8' : self.TAY,
-      '0xa9' : self.LDA,
+      '0xa9' : self.LDA_IMM,
       '0xaa' : self.TAX,
-      '0xac' : self.LDY,
-      '0xad' : self.LDA,
-      '0xae' : self.LDX,
+      '0xac' : self.LDY_ABS,
+      '0xad' : self.LDA_ABS,
+      '0xae' : self.LDX_ABS,
       '0xb0' : self.BCS,
-      '0xb1' : self.LDA,
-      '0xb4' : self.LDY,
-      '0xb5' : self.LDA,
-      '0xb6' : self.LDX,
+      '0xb1' : self.LDA_INDY,
+      '0xb4' : self.LDY_ZPX,
+      '0xb5' : self.LDA_ZPX,
+      '0xb6' : self.LDX_ZPY,
       '0xb8' : self.CLV,
-      '0xb9' : self.LDA,
+      '0xb9' : self.LDA_ABSY,
       '0xba' : self.TSX,
-      '0xbc' : self.LDY,
-      '0xbd' : self.LDA,
-      '0xbe' : self.LDX,
+      '0xbc' : self.LDY_ABSX,
+      '0xbd' : self.LDA_ABSX,
+      '0xbe' : self.LDX_ABSY,
       '0xc0' : self.CPY,
       '0xc1' : self.CMP,
       '0xc4' : self.CPY,
@@ -176,7 +178,15 @@ class CpuR2A03:
       '0xfd' : self.SBC,
       '0xfe' : self.INC
       }
-    
+
+  #----------------------------------------------------------------------
+  # CPU MAIN LOGIC
+  #----------------------------------------------------------------------
+
+  def printRegisters(self):
+    print('(PC:%(pc)04x, regA:%(ra)02x, regX:%(rx)02x, regY:%(ry)02x, regS:%(rs)02x, regP:%(rp)02x' %\
+          {"pc":self.PC, "ra":self.regA, "rx":self.regX, "ry":self.regY, "rs":self.regS, "rp":self.regP})
+
   def load(self, filename):
     print("Loading " + filename + " ...")
     tempRam = [0]*self.ramSize
@@ -212,9 +222,7 @@ class CpuR2A03:
       #Execute Opcode
       self.ops[format(self.currentOpcode, '#04x')]()
 
-      ##Print mnemonice and registers
-      mnemonic = self.ops[format(self.currentOpcode, '#04x')].__name__
-      print("     %(mnem)s" % {"mnem":mnemonic}),
+      #Print registers
       self.printRegisters()
 
       #Increase Program Counter
@@ -222,17 +230,19 @@ class CpuR2A03:
       if (self.PC > self.ramSize):
         self.PC = 0
       i += 1
-        
-  def printRegisters(self):
-    print('(PC:%(pc)04x, regA:%(ra)02x, regX:%(rx)02x, regY:%(ry)02x, regS:%(rs)02x, regP:%(rp)02x' %\
-          {"pc":self.PC, "ra":self.regA, "rx":self.regX, "ry":self.regY, "rs":self.regS, "rp":self.regP})
+
+  #----------------------------------------------------------------------
+  # ADRESSING MODES
+  #----------------------------------------------------------------------
 
   def getImmediateOperand(self):
+    self.PC += 1
     operand = self.ram[self.PC]
     print("#$" + format(operand, "02x")),
     return operand
 
   def getZeroPageOperand(self):
+    self.PC += 1
     adress = self.ram[self.PC]
     operand = self.ram[adress]
     print("$" + format(adress, "02x")),
@@ -256,42 +266,94 @@ class CpuR2A03:
   def getIndirectYOperand(self, adress):
     pass
 
+  #----------------------------------------------------------------------
+  # PROCESSOR STATUS FLAGS
+  #----------------------------------------------------------------------
   #bit ->   7                           0
   #       +---+---+---+---+---+---+---+---+
   #       | N | V |   | B | D | I | Z | C |  <-- flag, 0/1 = reset/set
   #       +---+---+---+---+---+---+---+---+
   #(N)egative, O(V)erflow, (B)inary, (D)ecimal, (I)nterrupt, (Z)ero, (C)arry
-  def setNegativeFlag(self):
+  def isNegative(self):
+    if (self.regP & 0x80):
+      return true
+    else:
+      return false
+  def setNegative(self):
     self.regP |= 0x80
-  def clearNegativeFlag(self):
+  def setNegativeIfNegative(self, operand):
+    if operand > 0x7f:
+      self.setNegative()
+    else:
+      self.clearNegative()
+  def clearNegative(self):
     self.regP &= 0x7f
-  def setOverflowFlag(self):
+  def isOverflow(self):
+    if (self.regP & 0x40):
+      return true
+    else:
+      return false
+  def setOverflow(self):
     self.regP |= 0x40
-  def clearOverflowFlag(self):
+  def clearOverflow(self):
     self.regP &= 0xbf
-  def setBinaryFlag(self):
+  def isBinary(self):
+    if (self.regP & 0x10):
+      return true
+    else:
+      return false
+  def setBinary(self):
     self.regP |= 0x10
-  def clearBinaryFlag(self):
+  def clearBinary(self):
     self.regP &= 0xef
-  def setDecimalFlag(self):
+  def isDecimal(self):
+    if (self.regP & 0x08):
+      return true
+    else:
+      return false
+  def setDecimal(self):
     self.regP |= 0x08
-  def clearDecimalFlag(self):
+  def clearDecimal(self):
     self.regP &= 0xf7
-  def setInterruptFlag(self):
+  def isInterrupt(self):
+    if (self.regP & 0x40):
+      return true
+    else:
+      return false
+  def setInterrupt(self):
     self.regP |= 0x04
-  def clearInterruptFlag(self):
+  def clearInterrupt(self):
     self.regP &= 0xfb
-  def setZeroFlag(self):
+  def isZero(self):
+    if (self.regP & 0x02):
+      return true
+    else:
+      return false
+  def setZero(self):
     self.regP |= 0x02
-  def clearZeroFlag(self):
-    self.regP &= 0xfc
-  def setCarryFlag(self):
+  def setZeroIfZero(self, operand):
+    if operand == 0x00:
+      self.setZero()
+    else:
+      self.clearZero()
+  def clearZero(self):
+    self.regP &= 0xfd
+  def isCarry(self):
+    if (self.regP & 0x01):
+      return true
+    else:
+      return false
+  def setCarry(self):
     self.regP |= 0x01
-  def clearCarryFlag(self):
+  def clearCarry(self):
     self.regP &= 0xfe
 
+  #----------------------------------------------------------------------
+  # OPCODE IMPLEMENTATION
+  #----------------------------------------------------------------------
+
   def BRK(self):
-    self.setBinaryFlag()
+    print("\tBRK"),
 
   def ORA(self):
     pass
@@ -305,7 +367,6 @@ class CpuR2A03:
   def PHP(self):
     pass
 
-  #Jump to subroutine
   def JMP(self):
     pass
 
@@ -322,7 +383,8 @@ class CpuR2A03:
     pass
 
   def SEC(self):
-    pass
+    print("SEC"),
+    self.setCarry()
 
   def EOR(self):
     pass
@@ -343,7 +405,8 @@ class CpuR2A03:
     pass
   
   def CLI(self):
-    pass
+    print("CLI"),
+    self.setInterrupt()
   
   def ADC(self):
     pass
@@ -371,6 +434,8 @@ class CpuR2A03:
   
   def TXA(self):
     pass
+    #print("TXA"),
+    #self.regA = self.regX
   
   def BCC(self):
     pass
@@ -383,22 +448,61 @@ class CpuR2A03:
   
   def TXY(self):
     pass
+
+  def LDY_ZP(self):
+    self.LDY(self.getZeroPageOperand())
   
-  def LDY(self):
-    pass
-  
-  def LDX(self):
-    pass
+  def LDY_IMM(self):
+    self.LDY(self.getImmediateOperand())
+
+  def LDY_ABS(self):
+    self.LDY(self.getAbsoluteOperand())
+
+  def LDY_ZPX(self):
+    self.LDY(self.getZeroPageXOperand())
+
+  def LDY_ABSX(self):
+    self.LDY(self.getAbsoluteXOperand())
+
+  def LDY(self, operand):
+    print("LDY"),
+    self.setNegativeIfNegative(operand)
+    self.setZeroIfZero(operand)
+    self.regY = operand
+
+  def LDX_ZP(self):
+    self.LDX(self.getZeroPageOperand())
+
+  def LDX_IMM(self):
+    self.LDX(self.getImmediateOperand())
+
+  def LDX_ABS(self):
+    self.LDX(self.getAbsoluteOperand())
+
+  def LDX_ZPY(self):
+    self.LDX(self.getZeroPageYOperand())
+
+  def LDX_ABSY(self):
+    self.LDX(self.getAbsoluteYOperand())
+
+  def LDX(self, operand):
+    print("LDX"),
+    self.setNegativeIfNegative(operand)
+    self.setZeroIfZero(operand)
+    self.regX = operand
   
   def TAY(self):
     pass
+    #self.regA = self.regY
   
   def TAX(self):
     pass
+    #self.regA = self.regX
   
   #Clear carry flag
   def CLC(self):
-    self.regP &= 0xfe
+    print("CLC"),
+    self.clearCarry()
 
   #Return to calling subroutine
   def RTS(self):
@@ -411,38 +515,35 @@ class CpuR2A03:
   def STA(self):
     pass
 
-  #LDA (LoaD Accumulator)
-  #Affects Flags: S Z
-  def LDA(self):
-    self.PC += 1
-    if self.currentOpcode == 0xa1: #Indirect, x
-      self.regA = self.getIndirectXOperand()
-    elif self.currentOpcode == 0xa5: #Zero page
-      self.regA = self.getZeroPageOperand()
-    elif self.currentOpcode == 0xa9: #Immediate
-      self.regA = self.getImmediateOperand()
-    elif self.currentOpcode == 0xad: #Absolute
-      self.regA = self.getAbsoluteOperand()
-    elif self.currentOpcode == 0xb1: #Indirect, Y
-      self.regA = self.getIndirectYOperand()
-    elif self.currentOpcode == 0xb5: #Zero page, X
-      self.regA = self.getZeroPageXOperand()
-    elif self.currentOpcode == 0xb9: #Absolute, Y
-      self.regA = self.getAbsoluteYOperand()
-    elif self.currentOpcode == 0xbd: #Absolute, X
-      self.regA = self.getAbsoluteXOperand()
+  def LDA_INDX(self):
+    self.LDA(self.getIndirectXOperand())
 
-    #Check if operand is negative
-    if self.regA > 0x7f:
-      self.setNegativeFlag()
-    else:
-      self.clearNegativeFlag()
+  def LDA_ZP(self):
+    self.LDA(self.getZeroPageOperand())
 
-    #Check if operand is zero
-    if self.regA == 0x00:
-      self.setZeroFlag()
-    else:
-      self.clearZeroFlag()
+  def LDA_IMM(self):
+    self.LDA(self.getImmediateOperand())
+
+  def LDA_ABS(self):
+    self.LDA(self.getAbsoluteOperand())
+
+  def LDA_INDY(self):
+    self.LDA(self.getIndirectYOperand())
+
+  def LDA_ZPX(self):
+    self.LDA(self.getZeroPageXOperand())
+
+  def LDA_ABSY(self):
+    self.LDA(self.getAbsoluteYOperand())
+
+  def LDA_ABSX(self):
+    self.LDA(self.getAbsoluteXOperand())
+
+  def LDA(self, operand):
+    print("LDA"),
+    self.setNegativeIfNegative(operand)
+    self.setZeroIfZero(operand)
+    self.regA = operand
 
   def BCS(self):
     pass
@@ -487,7 +588,7 @@ class CpuR2A03:
     pass
   
   def NOP(self):
-    pass
+    print("NOP"),
   
   def BEQ(self):
     pass
