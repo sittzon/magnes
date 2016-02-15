@@ -9,6 +9,7 @@ class CpuR2A03:
     self.ramSize = 2*1024
     self.ram = [0]*self.ramSize
     self.ram[2] = 0x01
+    self.ram[3] = 0x06
     self.ram[5] = 0xa9
     self.ram[6] = 0xff
 
@@ -123,7 +124,61 @@ class CpuR2A03:
       '0xa8' : self.TAY,
       '0xa9' : self.LDA,
       '0xaa' : self.TAX,
-    }
+      '0xac' : self.LDY,
+      '0xad' : self.LDA,
+      '0xae' : self.LDX,
+      '0xb0' : self.BCS,
+      '0xb1' : self.LDA,
+      '0xb4' : self.LDY,
+      '0xb5' : self.LDA,
+      '0xb6' : self.LDX,
+      '0xb8' : self.CLV,
+      '0xb9' : self.LDA,
+      '0xba' : self.TSX,
+      '0xbc' : self.LDY,
+      '0xbd' : self.LDA,
+      '0xbe' : self.LDX,
+      '0xc0' : self.CPY,
+      '0xc1' : self.CMP,
+      '0xc4' : self.CPY,
+      '0xc5' : self.CMP,
+      '0xc6' : self.DEC,
+      '0xc8' : self.INY,
+      '0xc9' : self.CMP,
+      '0xca' : self.DEX,
+      '0xcc' : self.CPY,
+      '0xcd' : self.CMP,
+      '0xce' : self.DEC,
+      '0xd0' : self.BNE,
+      '0xd1' : self.CMP,
+      '0xd5' : self.CMP,
+      '0xd6' : self.DEC,
+      '0xd8' : self.CLD,
+      '0xd9' : self.CMP,
+      '0xdd' : self.CMP,
+      '0xde' : self.DEC,
+      '0xd0' : self.CPX,
+      '0xde' : self.DEC,
+      '0xe0' : self.CPX,
+      '0xe1' : self.SBC,
+      '0xe4' : self.CPX,
+      '0xe5' : self.SBC,
+      '0xe6' : self.INC,
+      '0xe8' : self.INX,
+      '0xe9' : self.SBC,
+      '0xea' : self.NOP,
+      '0xec' : self.CPX,
+      '0xed' : self.SBC,
+      '0xee' : self.INC,
+      '0xf0' : self.BEQ,
+      '0xf1' : self.SBC,
+      '0xf5' : self.SBC,
+      '0xf6' : self.INC,
+      '0xf8' : self.SED,
+      '0xf9' : self.SBC,
+      '0xfd' : self.SBC,
+      '0xfe' : self.INC
+      }
     
   def load(self, filename):
     print("Loading " + filename + " ...")
@@ -134,7 +189,6 @@ class CpuR2A03:
       for i in range(0,64):#while byte != "":
         #Do something with byte
         print("0x%(byte)s" % {"byte":byte.encode("hex")}),
-        #self.ram[i] = int(byte.encode("hex"), 16)
         tempRam[i] = int(byte.encode("hex"), 16)
         byte = f.read(1)
     finally:
@@ -144,26 +198,24 @@ class CpuR2A03:
     #Verify 'NES'
     if tempRam[0] != 0x4e and tempRam[0] != 0x45 and tempRam[0] != 0x53:
       print("Not a 'NES' file! Loading incorrect")
-    else :
+    else:
       print("Identified 'NES' file")
-    #self.ram = tempRam
+      #self.ram = tempRam
       
     print("Loading complete.")
 
   def run(self):
     i = 0
     while (i < 16):
-      #Fetch opcode
-      self.currentOP = self.ram[self.PC]
-      #self.mode = 0
-      #self.operand = 0
+      #Fetch opcode and print current opcode and register info
+      self.currentOpcode = self.ram[self.PC]
+      print("%(pc)08d:%(op)02x" % {"pc":self.PC, "op":self.currentOpcode}),
+      mnemonic = self.ops[format(self.currentOpcode, '#04x')].__name__
+      print("%(mnem)s" % {"mnem":mnemonic}),
+      self.printRegisters()
 
       #Execute Opcode
-      mnemonic = self.ops[format(self.currentOP, '#04x')].__name__
-      print("%(pc)08d:%(op)02x %(mnem)s" % {"pc":self.PC, "op":self.currentOP, "mnem":mnemonic}),
-      self.printRegisters()
-      self.opcode = format(self.currentOP, '#04x')
-      self.ops[self.opcode]()
+      self.ops[format(self.currentOpcode, '#04x')]()
 
       #Increase Program Counter
       self.PC += 1
@@ -172,14 +224,14 @@ class CpuR2A03:
       i += 1
         
   def printRegisters(self):
-    print('(PC:%(pc)2x, regA:%(ra)2x, regX:%(rx)2x, regY:%(ry)2x, regS:%(rs)2x, regP:%(rp)2x' %\
+    print('(PC:%(pc)04x, regA:%(ra)02x, regX:%(rx)02x, regY:%(ry)02x, regS:%(rs)02x, regP:%(rp)02x' %\
           {"pc":self.PC, "ra":self.regA, "rx":self.regX, "ry":self.regY, "rs":self.regS, "rp":self.regP})
 
   #BRK (BReaK)
   #Affects Flags: B
   #Mode: Implied
   def BRK(self):
-    self.PC += 1;
+    #self.PC += 1;
     self.regP |= 0x10
 
   #ORA (Or Memory With Accumulator)
@@ -312,26 +364,76 @@ class CpuR2A03:
   #LDA (LoaD Accumulator)
   #Affects Flags: S Z
   def LDA(self):
-    if self.opcode == '0xa1': #Indirect, x
+    if self.currentOpcode == 0xa1: #Indirect, x
       pass
-    elif self.opcode == '0xa5': #Zero page
+    elif self.currentOpcode == 0xa5: #Zero page
       pass
-    elif self.opcode == '0xa9': #Immediatate
+    elif self.currentOpcode == 0xa9: #Immediate
       self.PC += 1
       operand = self.ram[self.PC]
       if operand > 0x7f : #Negative
         pass
         #self.regP |= 0x70
       self.regA = operand
-    elif self.opcode == '0xad': #Absolute
+    elif self.currentOpcode == 0xad: #Absolute
       pass
-    elif self.opcode == '0xb1': #Indirect, Y
+    elif self.currentOpcode == 0xb1: #Indirect, Y
       pass
-    elif self.opcode == '0xb5': #Zero page, X
+    elif self.currentOpcode == 0xb5: #Zero page, X
       pass
-    elif self.opcode == '0xb9': #Absolute, Y
+    elif self.currentOpcode == 0xb9: #Absolute, Y
       pass
-    elif self.opcode == '0xbd': #Absolute, X
+    elif self.currentOpcode == 0xbd: #Absolute, X
       pass
     pass
-
+  
+  def BCS(self):
+    pass
+  
+  def CLV(self):
+    pass
+  
+  def TSX(self):
+    pass
+  
+  def CPY(self):
+    pass
+  
+  def CMP(self):
+    pass
+  
+  def DEC(self):
+    pass
+  
+  def INY(self):
+    pass
+  
+  def DEX(self):
+    pass
+  
+  def BNE(self):
+    pass
+  
+  def CLD(self):
+    pass
+  
+  def CPX(self):
+    pass
+  
+  def SBC(self):
+    pass
+  
+  def INC(self):
+    pass
+  
+  def INX(self):
+    pass
+  
+  def NOP(self):
+    pass
+  
+  def BEQ(self):
+    pass
+  
+  def SED(self):
+    pass
