@@ -74,18 +74,55 @@ class CpuR2A03:
       '0x4e' : self.LSR,
       '0x50' : self.BVC,
       '0x55' : self.EOR,
-
-      '0x4d' : self.RTS,
+      '0x56' : self.LSR,
+      '0x58' : self.CLI,
+      '0x58' : self.EOR,
+      '0x5d' : self.EOR,
+      '0x5e' : self.LSR,
+      '0x60' : self.RTS,
+      '0x61' : self.ADC,
+      '0x65' : self.ADC,
+      '0x66' : self.ROR,
+      '0x68' : self.PLA,
+      '0x69' : self.ADC,
+      '0x6a' : self.ROR,
+      '0x6c' : self.JMP,
+      '0x6d' : self.ADC,
+      '0x6e' : self.ROR,
+      '0x70' : self.BVS,
+      '0x71' : self.ADC,
+      '0x75' : self.ADC,
+      '0x76' : self.ROR,
+      '0x78' : self.SEI,
+      '0x79' : self.ADC,
+      '0x7d' : self.ADC,
+      '0x7e' : self.ROR,
+      '0x81' : self.STA,
       '0x85' : self.STA,
+      '0x86' : self.STX,
+      '0x88' : self.DEY,
+      '0x8a' : self.TXA,
+      '0x8c' : self.STY,
+      '0x8d' : self.STA,
+      '0x8e' : self.STX,
+      '0x90' : self.BCC,
+      '0x91' : self.STA,
+      '0x94' : self.STY,
+      '0x95' : self.STA,
+      '0x96' : self.STX,
+      '0x98' : self.TYA,
+      '0x99' : self.STA,
+      '0x9a' : self.TXS,
+      '0x9c' : self.STA,
+      '0xa0' : self.LDY,
       '0xa1' : self.LDA,
+      '0xa2' : self.LDX,
+      '0xa4' : self.LDY,
       '0xa5' : self.LDA,
+      '0xa6' : self.LDX,
+      '0xa8' : self.TAY,
       '0xa9' : self.LDA,
-      '0xad' : self.LDA,
-      '0xb1' : self.LDA,
-      '0xb5' : self.LDA,
-      '0xb9' : self.LDA,
-      '0xbd' : self.LDA,
-      '0x4c' : self.JMP
+      '0xaa' : self.TAX,
     }
     
   def load(self, filename):
@@ -122,8 +159,8 @@ class CpuR2A03:
       #self.operand = 0
 
       #Execute Opcode
-      op_name = self.ops[format(self.currentOP, '#04x')].__name__
-      print("%(pc)08d:%(op)02x %(mnen)s" % {"pc":self.PC, "op":self.currentOP, "mnen":op_name}),
+      mnemonic = self.ops[format(self.currentOP, '#04x')].__name__
+      print("%(pc)08d:%(op)02x %(mnem)s" % {"pc":self.PC, "op":self.currentOP, "mnem":mnemonic}),
       self.printRegisters()
       self.opcode = format(self.currentOP, '#04x')
       self.ops[self.opcode]()
@@ -132,8 +169,6 @@ class CpuR2A03:
       self.PC += 1
       if (self.PC > self.ramSize):
         self.PC = 0
-
-
       i += 1
         
   def printRegisters(self):
@@ -204,7 +239,61 @@ class CpuR2A03:
 
   def BVC(self):
     pass
-
+  
+  def CLI(self):
+    pass
+  
+  def ADC(self):
+    pass
+  
+  def ROR(self):
+    pass
+  
+  def PLA(self):
+    pass
+  
+  def BVS(self):
+    pass
+  
+  def SEI(self):
+    pass
+  
+  def STY(self):
+    pass
+  
+  def STX(self):
+    pass
+  
+  def DEY(self):
+    pass
+  
+  def TXA(self):
+    pass
+  
+  def BCC(self):
+    pass
+  
+  def TYA(self):
+    pass
+  
+  def TXS(self):
+    pass
+  
+  def TXY(self):
+    pass
+  
+  def LDY(self):
+    pass
+  
+  def LDX(self):
+    pass
+  
+  def TAY(self):
+    pass
+  
+  def TAX(self):
+    pass
+  
   #Clear carry flag
   def CLC(self):
     pass
