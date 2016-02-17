@@ -6,7 +6,7 @@ class CpuR2A03:
     clockHertz = 1.773447*1000000 #PAL
 
     #Memory - 2kB
-    self.ramSize = 2*1024
+    self.ramSize = 64*1024 #2kB CPU RAM, 64kB adressable
     self.ram = [0]*self.ramSize
     self.ram[5] = 0xa5
     self.ram[6] = 0x03
@@ -18,11 +18,14 @@ class CpuR2A03:
     self.ram[12] = 0xab
     self.ram[13] = 0xcd
 
+
+    self.ram[0xcdab] = 0xef
+
     #Registers
     self.regA = 0 #Accumulator register, 8 bit
     self.regX = 0 #Index register 1, 8 bit
     self.regY = 0 #Index register 2, 8 bit
-    self.regS = 0 #Stack pointer, 8 bit
+    self.regS = 0 #Stack pointer, 8 bit, offset from $0100, wraps around on overflow
     self.regP = 0 #Processor status flag bits, 8 bit
     self.PC = 0 #Program counter, 16 bit
         
@@ -185,8 +188,8 @@ class CpuR2A03:
   #----------------------------------------------------------------------
 
   def printRegisters(self):
-    print('(PC:%(pc)04x, regA:%(ra)02x, regX:%(rx)02x, regY:%(ry)02x, regS:%(rs)02x, regP:%(rp)02x' %\
-          {"pc":self.PC, "ra":self.regA, "rx":self.regX, "ry":self.regY, "rs":self.regS, "rp":self.regP})
+    print('(regA:%(ra)02x, regX:%(rx)02x, regY:%(ry)02x, regS:%(rs)02x, regP:%(rp)02x' %\
+          {"ra":self.regA, "rx":self.regX, "ry":self.regY, "rs":self.regS, "rp":self.regP})
 
   def load(self, filename):
     print("Loading " + filename + " ...")
@@ -218,7 +221,7 @@ class CpuR2A03:
     while (i < 16):
       #Fetch opcode, print current opcode
       self.currentOpcode = self.ram[self.PC]
-      print("%(pc)08d:%(op)02x" % {"pc":self.PC, "op":self.currentOpcode}),
+      print("%(pc)04x:%(op)02x" % {"pc":self.PC, "op":self.currentOpcode}),
 
       #Execute Opcode
       self.ops[format(self.currentOpcode, '#04x')]()
@@ -236,6 +239,13 @@ class CpuR2A03:
   # ADRESSING MODES
   #----------------------------------------------------------------------
 
+  def getTwoBytes(self, adress):
+    low = self.ram[adress]
+    adress += 1
+    high = self.ram[adress]
+    high <<= 8
+    return high + low
+
   def getImmediateOperand(self):
     self.PC += 1
     operand = self.ram[self.PC]
@@ -250,28 +260,58 @@ class CpuR2A03:
     return operand
 
   def getZeroPageXOperand(self, adress):
-    pass
+    self.PC += 1
+    adressZeroPage = self.ram[self.ram[self.PC]]
+    adress = adressZeroPage + self.regX
+    if adress > 0xff:
+      adress -= 0xff
+    operand = self.ram[adress]
+    print("$" + format(adress, "02x")),
+    return operand
+
+  def getZeroPageYOperand(self, adress):
+    self.PC += 1
+    adressZeroPage = self.ram[self.ram[self.PC]]
+    adress = adressZeroPage + self.regY
+    if adress > 0xff:
+      adress -= 0xff
+    operand = self.ram[adress]
+    print("$" + format(adress, "02x")),
+    return operand
 
   def getAbsoluteOperand(self):
-    self.PC += 1
-    adressLow = self.ram[self.PC]
-    self.PC += 1
-    adressHigh = self.ram[self.PC]
-    adress = adressHigh << 4 + adressLow
+    adress = self.getTwoBytes(self.PC)
+    self.PC += 2
     operand = self.ram[adress]
     print("$" + format(adress, "04x")),
     return operand
 
-  def getAbsoluteXOperand(self, adress):
+  def getAbsoluteXOperand(self):
+    adress = self.getTwoBytes(self.PC)
+    self.PC += 2
+    adress += self.regX
+    operand = self.ram[adress]
+    print("$" + format(adress, "04x")),
+    return operand
+
+  def getAbsoluteYOperand(self):
+    adress = self.getTwoBytes(self.PC)
+    self.PC += 2
+    adress += self.regY
+    operand = self.ram[adress]
+    print("$" + format(adress, "04x")),
+    return operand
+
+  def getIndirectOperand(self):
+    adress1 = self.getTwoBytes(self.PC)
+    self.PC += 2
+    adress2 = self.getTwoBytes(adress1)
+    return self.ram[adress2]
+
+  def getIndirectXOperand(self):
     pass
 
-  def getAbsoluteYOperand(self, adress):
-    pass
-
-  def getIndirectXOperand(self, adress):
-    pass
-
-  def getIndirectYOperand(self, adress):
+  def getIndirectYOperand(self):
     pass
 
   #----------------------------------------------------------------------
