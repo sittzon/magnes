@@ -14,8 +14,9 @@ class CpuR2A03:
     self.ram[8] = 0xaa
     self.ram[9] = 0xa2
     self.ram[10] = 0xab
-    self.ram[11] = 0xa0
-    self.ram[12] = 0xcf
+    self.ram[11] = 0xac
+    self.ram[12] = 0xab
+    self.ram[13] = 0xcd
 
     #Registers
     self.regA = 0 #Accumulator register, 8 bit
@@ -251,8 +252,15 @@ class CpuR2A03:
   def getZeroPageXOperand(self, adress):
     pass
 
-  def getAbsoluteOperand(self, adress):
-    pass
+  def getAbsoluteOperand(self):
+    self.PC += 1
+    adressLow = self.ram[self.PC]
+    self.PC += 1
+    adressHigh = self.ram[self.PC]
+    adress = adressHigh << 4 + adressLow
+    operand = self.ram[adress]
+    print("$" + format(adress, "04x")),
+    return operand
 
   def getAbsoluteXOperand(self, adress):
     pass
