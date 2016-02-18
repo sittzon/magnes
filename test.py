@@ -14,4 +14,4 @@ class Main:
         self.cpu.run()
 
 mainInstance = Main()
-mainInstance.start('Excitebike (Eur).nes')
+mainInstance.start('nestest.nes')

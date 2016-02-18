@@ -196,28 +196,48 @@ class CpuR2A03:
     f = open(filename, 'rb')
     try:
       byte = f.read(1)
-      for i in range(0,64):#while byte != "":
+      i = 0
+      while byte != "":#for i in range(0,64):
         #Do something with byte
-        print("0x%(byte)s" % {"byte":byte.encode("hex")}),
+        if (i < 128): #Print only first bytes
+          print("0x%(byte)s" % {"byte":byte.encode("hex")}),
         tempRam[i] = int(byte.encode("hex"), 16)
         byte = f.read(1)
+        i += 1
     finally:
       f.close()
-    print("")
       
     #Verify 'NES'
-    if tempRam[0] != 0x4e and tempRam[0] != 0x45 and tempRam[0] != 0x53:
-      print("Not a 'NES' file! Loading incorrect")
+    if (tempRam[0] != 0x4e) or (tempRam[1] != 0x45) or (tempRam[2] != 0x53):
+      print("String 'NES' not found. Aborting loading.")
     else:
-      print("Identified 'NES' file")
-      #for i in tempRam:
-      #  self.ram[i] = tempRam[i+16]
+      self.loadNES(tempRam)
       
     print("Loading complete.")
 
+
+  def loadNES(self, tempLoadedRam):
+    self.nrOf16kbRomBanks = tempLoadedRam[4]
+    self.nrOf8kbVromBanks = tempLoadedRam[5]
+    self.nrOf8kbRamBanks = tempLoadedRam[8]
+
+    self.isPal = False
+    if tempLoadedRam[9] == 0x01:
+      self.isPal = True
+
+    #if self.isPal == False:
+      #print("isPal: " + str(self.isPal) + ", " + str(tempLoadedRam[8]))
+      #print("NTSC cartridge not currently supported. Aborting loading.")
+      #return
+
+    #Transfer rom data to CPU memory
+    for i in range(0,2*1024):
+      self.ram[i] = tempLoadedRam[i+16]
+
+
   def run(self):
     i = 0
-    while (i < 16):
+    while (i < 20):
       #Fetch opcode, print
       self.currentOpcode = self.ram[self.PC]
       print("%(pc)04x:%(op)02x" % {"pc":self.PC, "op":self.currentOpcode}),
@@ -339,7 +359,7 @@ class CpuR2A03:
     operand -= 0x80
     #if condition:
     #  self.PC += operand
-    print("$" + format(operand, "02x")),
+    print("$RELATIVENOTIMPLEMENTED" + format(operand, "02x")),
     self.PC += 2
    	
   #----------------------------------------------------------------------
@@ -352,9 +372,9 @@ class CpuR2A03:
   #(N)egative, O(V)erflow, (B)inary, (D)ecimal, (I)nterrupt, (Z)ero, (C)arry
   def isNegative(self):
     if (self.regP & 0x80):
-      return true
+      return True
     else:
-      return false
+      return False
   def setNegative(self):
     self.regP |= 0x80
   def setNegativeIfNegative(self, operand):
@@ -366,45 +386,45 @@ class CpuR2A03:
     self.regP &= 0x7f
   def isOverflow(self):
     if (self.regP & 0x40):
-      return true
+      return True
     else:
-      return false
+      return False
   def setOverflow(self):
     self.regP |= 0x40
   def clearOverflow(self):
     self.regP &= 0xbf
   def isBinary(self):
     if (self.regP & 0x10):
-      return true
+      return True
     else:
-      return false
+      return False
   def setBinary(self):
     self.regP |= 0x10
   def clearBinary(self):
     self.regP &= 0xef
   def isDecimal(self):
     if (self.regP & 0x08):
-      return true
+      return True
     else:
-      return false
+      return False
   def setDecimal(self):
     self.regP |= 0x08
   def clearDecimal(self):
     self.regP &= 0xf7
   def isInterrupt(self):
     if (self.regP & 0x40):
-      return true
+      return True
     else:
-      return false
+      return False
   def setInterrupt(self):
     self.regP |= 0x04
   def clearInterrupt(self):
     self.regP &= 0xfb
   def isZero(self):
     if (self.regP & 0x02):
-      return true
+      return True
     else:
-      return false
+      return False
   def setZero(self):
     self.regP |= 0x02
   def setZeroIfZero(self, operand):
@@ -416,9 +436,9 @@ class CpuR2A03:
     self.regP &= 0xfd
   def isCarry(self):
     if (self.regP & 0x01):
-      return true
+      return True
     else:
-      return false
+      return False
   def setCarry(self):
     self.regP |= 0x01
   def clearCarry(self):
@@ -446,7 +466,8 @@ class CpuR2A03:
     pass
 
   def JMP(self):
-    pass
+    print("JMPNOTIMPLEMENTED"),
+    self.getRelativeOperand()
 
   def JSR(self):
     pass
@@ -476,7 +497,9 @@ class CpuR2A03:
     pass
 
   def LSR(self):
-    pass
+    self.printSpacesBeforeOpcode()
+    print("LSRNOTIMPLEMENTED"),
+    self.getImpliedOperand()
 
   def PHA(self):
     pass
