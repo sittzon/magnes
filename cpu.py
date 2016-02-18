@@ -11,13 +11,12 @@ class CpuR2A03:
     self.ram[5] = 0xa5
     self.ram[6] = 0x03
     self.ram[7] = 0xa9
-    self.ram[8] = 0xaa
+    self.ram[8] = 0x30
     self.ram[9] = 0xa2
     self.ram[10] = 0xab
     self.ram[11] = 0xac
     self.ram[12] = 0xab
     self.ram[13] = 0xcd
-
 
     self.ram[0xcdab] = 0xef
 
@@ -219,125 +218,129 @@ class CpuR2A03:
   def run(self):
     i = 0
     while (i < 16):
-      #Fetch opcode, print current opcode
+      #Fetch opcode, print
       self.currentOpcode = self.ram[self.PC]
       print("%(pc)04x:%(op)02x" % {"pc":self.PC, "op":self.currentOpcode}),
 
-      #Execute Opcode
+      #Execute instruction
       self.ops[format(self.currentOpcode, '#04x')]()
 
       #Print registers
       self.printRegisters()
-
-      #Increase Program Counter
-      self.PC += 1
-      if (self.PC > self.ramSize):
-        self.PC = 0
       i += 1
 
   #----------------------------------------------------------------------
   # ADRESSING MODES
   #----------------------------------------------------------------------
 
+  def printSpacesBeforeOpcode(self):
+    print("     "),
+
   def getTwoBytes(self, adress):
     low = self.ram[adress]
     high = self.ram[adress + 1] << 8
     return high + low
 
-  def getImmediateOperand(self):
+  def getImpliedOperand(self):
     self.PC += 1
-    operand = self.ram[self.PC]
-    print("#$" + format(operand, "02x")),
+
+  def getAccumulatorOperand(self):
+    self.PC += 1
+
+  def getImmediateOperand(self):
+    operand = self.ram[self.PC + 1]
+    print("#$" + format(operand, "02x") + " "),
+    self.PC += 2
     return operand
 
   def getZeroPageOperand(self):
-    self.PC += 1
-    adress = self.ram[self.PC]
+    adress = self.ram[self.PC + 1]
     if adress > 0xff:
       adress -= 0xff
     operand = self.ram[adress]
-    print("$" + format(adress, "02x")),
+    print("$" + format(adress, "02x") + "  "),
+    self.PC += 2
     return operand
 
   def getZeroPageXOperand(self, adress):
-    self.PC += 1
-    adressZeroPage = self.ram[self.ram[self.PC]]
+    adressZeroPage = self.ram[self.ram[self.PC +1]]
     adress = adressZeroPage + self.regX
     if adress > 0xff:
       adress -= 0xff
     operand = self.ram[adress]
-    print("$" + format(adress, "02x")),
+    print("$" + format(adress, "02x") + "  "),
+    self.PC += 2
     return operand
 
   def getZeroPageYOperand(self, adress):
-    self.PC += 1
-    adressZeroPage = self.ram[self.ram[self.PC]]
+    adressZeroPage = self.ram[self.ram[self.PC + 1]]
     adress = adressZeroPage + self.regY
     if adress > 0xff:
       adress -= 0xff
     operand = self.ram[adress]
-    print("$" + format(adress, "02x")),
+    print("$" + format(adress, "02x") + "  "),
+    self.PC += 2
     return operand
 
   def getAbsoluteOperand(self):
-    adress = self.getTwoBytes(self.PC)
-    self.PC += 2
+    adress = self.getTwoBytes(self.PC + 1)
     operand = self.ram[adress]
     print("$" + format(adress, "04x")),
+    self.PC += 3
     return operand
 
   def getAbsoluteXOperand(self):
-    adress = self.getTwoBytes(self.PC)
-    self.PC += 2
+    adress = self.getTwoBytes(self.PC + 1)
     adress += self.regX
     operand = self.ram[adress]
     print("$" + format(adress, "04x") + ".X"),
+    self.PC += 3
     return operand
 
   def getAbsoluteYOperand(self):
-    adress = self.getTwoBytes(self.PC)
-    self.PC += 2
+    adress = self.getTwoBytes(self.PC + 1)
     adress += self.regY
     operand = self.ram[adress]
     print("$" + format(adress, "04x") + ".Y"),
+    self.PC += 3
     return operand
 
   def getIndirectOperand(self):
-    adress1 = self.getTwoBytes(self.PC)
-    self.PC += 2
+    adress1 = self.getTwoBytes(self.PC + 1)
     adress2 = self.getTwoBytes(adress1)
     operand = self.ram[adress2]
     print("$" + format(adress1, "04x")),
+    self.PC += 3
     return operand
 
   #AKA Indexed Indirect or pre-indexed
   def getIndirectXOperand(self):
-    self.PC += 1
-    adress1 = self.ram[self.PC]
+    adress1 = self.ram[self.PC + 1]
     adress2 = adress1 + self.regX
     adress3 = self.getTwoBytes(adress2)
     operand = self.ram[adress3]
     print("$" + format(adress1, "02x") + ",X"),
+    self.PC += 2
     return operand
 
 
   #AKA Indirect Indexed or post-indexed
   def getIndirectYOperand(self):
-    self.PC += 1
-    adress1 = self.ram[self.PC]
+    adress1 = self.ram[self.PC + 1]
     adress2 = self.getTwoBytes(adress1)
     adress3 = adress2 + self.regY
     operand = self.ram[adress3]
     print("$" + format(adress1, "02x") + ",Y"),
+    self.PC += 2
     return operand
 
   def getRelativeOperand(self):
-   	self.PC += 1
-   	operand = self.ram[self.PC]
-   	operand -= 0x80
-   	if condition:
-   	  self.PC += operand
-   	print("$" + format(operand, "02x")),
+    operand = self.ram[self.PC + 2]
+    operand -= 0x80
+    #if condition:
+    #  self.PC += operand
+    print("$" + format(operand, "02x")),
+    self.PC += 2
    	
   #----------------------------------------------------------------------
   # PROCESSOR STATUS FLAGS
@@ -426,7 +429,9 @@ class CpuR2A03:
   #----------------------------------------------------------------------
 
   def BRK(self):
-    print("\tBRK"),
+    self.printSpacesBeforeOpcode()
+    print("BRK"),
+    self.getImpliedOperand()
 
   def ORA(self):
     pass
@@ -456,7 +461,9 @@ class CpuR2A03:
     pass
 
   def SEC(self):
+    self.printSpacesBeforeOpcode()
     print("SEC"),
+    self.getImpliedOperand()
     self.setCarry()
 
   def EOR(self):
@@ -478,7 +485,9 @@ class CpuR2A03:
     pass
   
   def CLI(self):
+    self.printSpacesBeforeOpcode()
     print("CLI"),
+    self.getImpliedOperand()
     self.setInterrupt()
   
   def ADC(self):
@@ -573,7 +582,9 @@ class CpuR2A03:
     self.regX = operand
   
   def CLC(self):
+    self.printSpacesBeforeOpcode()
     print("CLC"),
+    self.getImpliedOperand()
     self.clearCarry()
 
   #Return to calling subroutine
@@ -660,7 +671,9 @@ class CpuR2A03:
     pass
   
   def NOP(self):
+    self.printSpacesBeforeOpcode()
     print("NOP"),
+    self.getImpliedOperand()
   
   def BEQ(self):
     pass
