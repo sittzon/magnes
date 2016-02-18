@@ -6,7 +6,7 @@ class CpuR2A03:
     clockHertz = 1.773447*1000000 #PAL
 
     #Memory - 2kB
-    self.ramSize = 64*1024 #2kB CPU RAM, 64kB adressable
+    self.ramSize = 64*1024 #2kB CPU internal RAM, 64kB adressable
     self.ram = [0]*self.ramSize
     self.ram[5] = 0xa5
     self.ram[6] = 0x03
@@ -17,70 +17,77 @@ class CpuR2A03:
     self.ram[11] = 0xac
     self.ram[12] = 0xab
     self.ram[13] = 0xcd
-
     self.ram[0xcdab] = 0xef
+
+    #Start-up state
+    self.ram[0x4015] = 0x00 #All sound disabled
+    self.ram[0x4017] = 0x00 #Frame IRQ enabled
+    for i in range(0, 16):
+      self.ram[0x4000 + i] = 0x00
 
     #Registers
     self.regA = 0 #Accumulator register, 8 bit
     self.regX = 0 #Index register 1, 8 bit
     self.regY = 0 #Index register 2, 8 bit
-    self.regS = 0 #Stack pointer, 8 bit, offset from $0100, wraps around on overflow
+    self.regS = 0xfd #Stack pointer, 8 bit, offset from $0100, wraps around on overflow
     self.regP = 0 #Processor status flag bits, 8 bit
     self.PC = 0 #Program counter, 16 bit
         
     # OPcodes
     self.ops = {
       '0x00' : self.BRK,
-      '0x01' : self.ORA,
-      '0x05' : self.ORA,
+      '0x01' : self.ORA_INDX,
+      '0x05' : self.ORA_ZP,
       '0x06' : self.ASL,
       '0x08' : self.PHP,
-      '0x09' : self.ORA,
+      '0x09' : self.ORA_IMM,
       '0x0a' : self.ASL,
-      '0x0d' : self.ORA,
+      '0x0d' : self.ORA_ABS,
       '0x0e' : self.ASL,
       '0x10' : self.BPL,
-      '0x15' : self.ORA,
+      '0x11' : self.ORA_INDY,
+      '0x15' : self.ORA_ZPX,
       '0x16' : self.ASL,
       '0x18' : self.CLC,
-      '0x19' : self.ORA,
-      '0x1d' : self.ORA,
+      '0x19' : self.ORA_ABSY,
+      '0x1d' : self.ORA_ABSX,
       '0x1e' : self.ASL,
       '0x20' : self.JSR,
-      '0x21' : self.AND,
+      '0x21' : self.AND_INDX,
       '0x24' : self.BIT,
-      '0x25' : self.AND,
+      '0x25' : self.AND_ZP,
       '0x26' : self.ROL,
       '0x28' : self.PLP,
-      '0x29' : self.AND,
+      '0x29' : self.AND_IMM,
       '0x2a' : self.ROL,
       '0x2c' : self.BIT,
-      '0x2d' : self.AND,
+      '0x2d' : self.AND_ABS,
       '0x2e' : self.ROL,
       '0x30' : self.BMI,
-      '0x31' : self.AND,
-      '0x35' : self.AND,
+      '0x31' : self.AND_INDY,
+      '0x35' : self.AND_ZPX,
       '0x36' : self.ROL,
       '0x38' : self.SEC,
-      '0x39' : self.AND,
-      '0x3d' : self.AND,
+      '0x39' : self.AND_ABSY,
+      '0x3d' : self.AND_ABSX,
       '0x3e' : self.ROL,
       '0x40' : self.RTI,
-      '0x41' : self.EOR,
-      '0x45' : self.EOR,
+      '0x41' : self.EOR_INDX,
+      '0x45' : self.EOR_ZP,
       '0x46' : self.LSR,
       '0x48' : self.PHA,
-      '0x49' : self.EOR,
+      '0x49' : self.EOR_IMM,
       '0x4a' : self.LSR,
       '0x4c' : self.JMP,
-      '0x4d' : self.EOR,
+      '0x4d' : self.EOR_ABS,
       '0x4e' : self.LSR,
       '0x50' : self.BVC,
-      '0x55' : self.EOR,
+      '0x51' : self.EOR_INDY,
+      '0x55' : self.EOR_ZPX,
       '0x56' : self.LSR,
       '0x58' : self.CLI,
-      '0x58' : self.EOR,
-      '0x5d' : self.EOR,
+      '0x59' : self.EOR_ABSY,
+      '0x5d' : self.EOR_ABSX,
       '0x5e' : self.LSR,
       '0x60' : self.RTS,
       '0x61' : self.ADC,
@@ -101,6 +108,7 @@ class CpuR2A03:
       '0x7d' : self.ADC,
       '0x7e' : self.ROR,
       '0x81' : self.STA,
+      '0x84' : self.STY,
       '0x85' : self.STA,
       '0x86' : self.STX,
       '0x88' : self.DEY,
@@ -234,6 +242,20 @@ class CpuR2A03:
     for i in range(0,2*1024):
       self.ram[i] = tempLoadedRam[i+16]
 
+  def powerUp(self):
+    #Start-up state
+    self.ram[0x4015] = 0x00 #All sound disabled
+    self.ram[0x4017] = 0x00 #Frame IRQ enabled
+    for i in range(0, 16):
+      self.ram[0x4000 + i] = 0x00
+
+    #Registers
+    self.regA = 0 #Accumulator register, 8 bit
+    self.regX = 0 #Index register 1, 8 bit
+    self.regY = 0 #Index register 2, 8 bit
+    self.regS = 0xfd #Stack pointer, 8 bit, offset from $0100, wraps around on overflow
+    self.regP = 0 #Processor status flag bits, 8 bit
+    self.PC = 0 #Program counter, 16 bit
 
   def run(self):
     i = 0
@@ -248,6 +270,14 @@ class CpuR2A03:
       #Print registers
       self.printRegisters()
       i += 1
+
+  def reset(self):
+    #A,X,Y not affected
+    self.regS -= 0x03 #S decremented by 3
+    self.setInterrupt() #Interrupt flag is set
+    #Internal memory unchanged
+    #APU mode in $4017 unchanged
+    self.ram[0x4015] = 0x00 #All sound disabled
 
   #----------------------------------------------------------------------
   # ADRESSING MODES
@@ -453,8 +483,35 @@ class CpuR2A03:
     print("BRK"),
     self.getImpliedOperand()
 
-  def ORA(self):
-    pass
+  def ORA_IMM(self):
+    self.ORA(self.getImmediateOperand())
+
+  def ORA_ZP(self):
+    self.ORA(self.getZeroPageOperand())
+
+  def ORA_ZPX(self):
+    self.ORA(self.getZeroPageXOperand())
+
+  def ORA_ABS(self):
+    self.ORA(self.getAbsoluteOperand())
+
+  def ORA_ABSX(self):
+    self.ORA(self.getAbsoluteXOperand())
+
+  def ORA_ABSY(self):
+    self.ORA(self.getAbsoluteYOperand())
+
+  def ORA_INDX(self):
+    self.ORA(self.getIndirectXOperand())
+
+  def ORA_INDY(self):
+    self.ORA(self.getIndirectYOperand())
+
+  def ORA(self, operand):
+    print("ORA"),
+    self.regA = operand | self.regA
+    self.setNegativeIfNegative(self.regA)
+    self.setZeroIfZero(self.regA)
 
   def ASL(self):
     pass
@@ -472,8 +529,35 @@ class CpuR2A03:
   def JSR(self):
     pass
 
-  def AND(self):
-    pass
+  def AND_IMM(self):
+    self.AND(self.getImmediateOperand())
+
+  def AND_ZP(self):
+    self.AND(self.getZeroPageOperand())
+
+  def AND_ZPX(self):
+    self.AND(self.getZeroPageXOperand())
+
+  def AND_ABS(self):
+    self.AND(self.getAbsoluteOperand())
+
+  def AND_ABSX(self):
+    self.AND(self.getAbsoluteXOperand())
+
+  def AND_ABSY(self):
+    self.AND(self.getAbsoluteYOperand())
+
+  def AND_INDX(self):
+    self.AND(self.getIndirectXOperand())
+
+  def AND_INDY(self):
+    self.AND(self.getIndirectYOperand())
+
+  def AND(self, operand):
+    print("AND"),
+    self.regA = operand & self.regA
+    self.setNegativeIfNegative(self.regA)
+    self.setZeroIfZero(self.regA)
 
   def BIT(self):
     pass
@@ -487,8 +571,35 @@ class CpuR2A03:
     self.getImpliedOperand()
     self.setCarry()
 
-  def EOR(self):
-    pass
+  def EOR_IMM(self):
+    self.EOR(self.getImmediateOperand())
+
+  def EOR_ZP(self):
+    self.EOR(self.getZeroPageOperand())
+
+  def EOR_ZPX(self):
+    self.EOR(self.getZeroPageXOperand())
+
+  def EOR_ABS(self):
+    self.EOR(self.getAbsoluteOperand())
+
+  def EOR_ABSX(self):
+    self.EOR(self.getAbsoluteXOperand())
+
+  def EOR_ABSY(self):
+    self.EOR(self.getAbsoluteYOperand())
+
+  def EOR_INDX(self):
+    self.EOR(self.getIndirectXOperand())
+
+  def EOR_INDY(self):
+    self.EOR(self.getIndirectYOperand())
+
+  def EOR(self, operand):
+    print("EOR"),
+    self.regA = operand ^ self.regA
+    self.setNegativeIfNegative(self.regA)
+    self.setZeroIfZero(self.regA)
 
   def PLP(self):
     pass
@@ -679,7 +790,10 @@ class CpuR2A03:
     pass
   
   def CLD(self):
-    pass
+    self.printSpacesBeforeOpcode()    
+    print("CLD"),
+    self.getImpliedOperand()
+    self.clearDecimal()
   
   def CPX(self):
     pass
@@ -702,4 +816,7 @@ class CpuR2A03:
     pass
   
   def SED(self):
-    pass
+    self.printSpacesBeforeOpcode()    
+    print("SED"),
+    self.getImpliedOperand()
+    self.setDecimal()
