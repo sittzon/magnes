@@ -241,9 +241,7 @@ class CpuR2A03:
 
   def getTwoBytes(self, adress):
     low = self.ram[adress]
-    adress += 1
-    high = self.ram[adress]
-    high <<= 8
+    high = self.ram[adress + 1] << 8
     return high + low
 
   def getImmediateOperand(self):
@@ -255,6 +253,8 @@ class CpuR2A03:
   def getZeroPageOperand(self):
     self.PC += 1
     adress = self.ram[self.PC]
+    if adress > 0xff:
+      adress -= 0xff
     operand = self.ram[adress]
     print("$" + format(adress, "02x")),
     return operand
@@ -291,7 +291,7 @@ class CpuR2A03:
     self.PC += 2
     adress += self.regX
     operand = self.ram[adress]
-    print("$" + format(adress, "04x")),
+    print("$" + format(adress, "04x") + ".X"),
     return operand
 
   def getAbsoluteYOperand(self):
@@ -299,21 +299,46 @@ class CpuR2A03:
     self.PC += 2
     adress += self.regY
     operand = self.ram[adress]
-    print("$" + format(adress, "04x")),
+    print("$" + format(adress, "04x") + ".Y"),
     return operand
 
   def getIndirectOperand(self):
     adress1 = self.getTwoBytes(self.PC)
     self.PC += 2
     adress2 = self.getTwoBytes(adress1)
-    return self.ram[adress2]
+    operand = self.ram[adress2]
+    print("$" + format(adress1, "04x")),
+    return operand
 
+  #AKA Indexed Indirect or pre-indexed
   def getIndirectXOperand(self):
-    pass
+    self.PC += 1
+    adress1 = self.ram[self.PC]
+    adress2 = adress1 + self.regX
+    adress3 = self.getTwoBytes(adress2)
+    operand = self.ram[adress3]
+    print("$" + format(adress1, "02x") + ",X"),
+    return operand
 
+
+  #AKA Indirect Indexed or post-indexed
   def getIndirectYOperand(self):
-    pass
+    self.PC += 1
+    adress1 = self.ram[self.PC]
+    adress2 = self.getTwoBytes(adress1)
+    adress3 = adress2 + self.regY
+    operand = self.ram[adress3]
+    print("$" + format(adress1, "02x") + ",Y"),
+    return operand
 
+  def getRelativeOperand(self):
+   	self.PC += 1
+   	operand = self.ram[self.PC]
+   	operand -= 0x80
+   	if condition:
+   	  self.PC += operand
+   	print("$" + format(operand, "02x")),
+   	
   #----------------------------------------------------------------------
   # PROCESSOR STATUS FLAGS
   #----------------------------------------------------------------------
@@ -479,14 +504,14 @@ class CpuR2A03:
   
   def DEY(self):
     pass
+
+  def BCC(self):
+    pass
   
   def TXA(self):
     pass
     #print("TXA"),
     #self.regA = self.regX
-  
-  def BCC(self):
-    pass
   
   def TYA(self):
     pass
@@ -496,6 +521,14 @@ class CpuR2A03:
   
   def TXY(self):
     pass
+
+  def TAY(self):
+    pass
+    #self.regA = self.regY
+  
+  def TAX(self):
+    pass
+    #self.regA = self.regX
 
   def LDY_ZP(self):
     self.LDY(self.getZeroPageOperand())
@@ -539,15 +572,6 @@ class CpuR2A03:
     self.setZeroIfZero(operand)
     self.regX = operand
   
-  def TAY(self):
-    pass
-    #self.regA = self.regY
-  
-  def TAX(self):
-    pass
-    #self.regA = self.regX
-  
-  #Clear carry flag
   def CLC(self):
     print("CLC"),
     self.clearCarry()
