@@ -7,6 +7,7 @@ class CpuR2A03:
 
     self.ramSize = 64*1024 #2kB CPU internal RAM, 64kB adressable
     self.ram = [0]*self.ramSize
+    self.ramOffset = 0x0100
 
     self.ram[5] = 0xa9
     self.ram[6] = 0x8f
@@ -40,13 +41,13 @@ class CpuR2A03:
       '0x1e' : self.ASL,
       '0x20' : self.JSR,
       '0x21' : self.AND_INDX,
-      '0x24' : self.BIT,
+      '0x24' : self.BIT_ZP,
       '0x25' : self.AND_ZP,
       '0x26' : self.ROL,
       '0x28' : self.PLP,
       '0x29' : self.AND_IMM,
       '0x2a' : self.ROL,
-      '0x2c' : self.BIT,
+      '0x2c' : self.BIT_ABS,
       '0x2d' : self.AND_ABS,
       '0x2e' : self.ROL,
       '0x30' : self.BMI,
@@ -153,7 +154,6 @@ class CpuR2A03:
       '0xd9' : self.CMP,
       '0xdd' : self.CMP,
       '0xde' : self.DEC,
-      '0xd0' : self.CPX,
       '0xde' : self.DEC,
       '0xe0' : self.CPX,
       '0xe1' : self.SBC,
@@ -260,7 +260,7 @@ class CpuR2A03:
 
   def run(self):
     i = 0
-    while (i < 20):
+    while (i < 128):
       #Fetch opcode, print
       self.currentOpcode = self.ram[self.PC]
       print("%(pc)04x:%(op)02x" % {"pc":self.PC, "op":self.currentOpcode}),
@@ -290,12 +290,16 @@ class CpuR2A03:
     return high + low
 
   def pushStack(self, value):
-    self.ram[self.regS] = value
+    self.ram[self.regS + self.ramOffset] = value
     self.regS += 1
+    self.regS = self.regS % 0xff
+
 
   def popStack(self):
+    returnValue = self.ram[self.regS + self.ramOffset + 1]
     self.regS -= 1
-    return self.ram[self.regS + 1];
+    self.regS = self.regS % 0xff
+    return returnValue;
 
   def zeroPageWrapping(self, adress):
     return adress % 0xff
@@ -492,31 +496,38 @@ class CpuR2A03:
     self.getImpliedOperand()
 
   def ORA_IMM(self):
+    print("ORA"),
     self.ORA(self.getImmediateOperand())
 
   def ORA_ZP(self):
+    print("ORA"),
     self.ORA(self.getZeroPageOperand())
 
   def ORA_ZPX(self):
+    print("ORA"),
     self.ORA(self.getZeroPageXOperand())
 
   def ORA_ABS(self):
+    print("ORA"),
     self.ORA(self.getAbsoluteOperand())
 
   def ORA_ABSX(self):
+    print("ORA"),
     self.ORA(self.getAbsoluteXOperand())
 
   def ORA_ABSY(self):
+    print("ORA"),
     self.ORA(self.getAbsoluteYOperand())
 
   def ORA_INDX(self):
+    print("ORA"),
     self.ORA(self.getIndirectXOperand())
 
   def ORA_INDY(self):
+    print("ORA"),
     self.ORA(self.getIndirectYOperand())
 
   def ORA(self, operand):
-    print("ORA"),
     self.regA = operand | self.regA
     self.setNegativeIfNegative(self.regA)
     self.setZeroIfZero(self.regA)
@@ -529,7 +540,12 @@ class CpuR2A03:
     self.regA <<= 1
 
   def BPL(self):
-    pass
+    print("BPL"),
+    if self.isNegative() == False:
+      self.getRelativeOperand()
+    else:
+      print("$" + format(self.PC, "04x") + "  "),
+      self.PC += 2
 
   def PHP(self):
     print("PHP"),
@@ -550,9 +566,9 @@ class CpuR2A03:
 
   def JMP(self, operand):
     #Push PC,P
-    self.pushStack(self.PC >> 4)
-    self.pushStack(self.PC & 0xff)
-    self.pushStack(self.regP)
+    #self.pushStack(self.PC >> 4)
+    #self.pushStack(self.PC & 0xff)
+    #self.pushStack(self.regP)
     self.PC = operand
 
   #Hack implementation!
@@ -567,37 +583,55 @@ class CpuR2A03:
     self.PC = adress
 
   def AND_IMM(self):
+    print("AND"),
     self.AND(self.getImmediateOperand())
 
   def AND_ZP(self):
+    print("AND"),
     self.AND(self.getZeroPageOperand())
 
   def AND_ZPX(self):
+    print("AND"),
     self.AND(self.getZeroPageXOperand())
 
   def AND_ABS(self):
+    print("AND"),
     self.AND(self.getAbsoluteOperand())
 
   def AND_ABSX(self):
+    print("AND"),
     self.AND(self.getAbsoluteXOperand())
 
   def AND_ABSY(self):
+    print("AND"),
     self.AND(self.getAbsoluteYOperand())
 
   def AND_INDX(self):
+    print("AND"),
     self.AND(self.getIndirectXOperand())
 
   def AND_INDY(self):
+    print("AND"),
     self.AND(self.getIndirectYOperand())
 
   def AND(self, operand):
-    print("AND"),
     self.regA = operand & self.regA
     self.setNegativeIfNegative(self.regA)
     self.setZeroIfZero(self.regA)
 
-  def BIT(self):
-    pass
+  def BIT_ZP(self):
+    print("BIT"),
+    self.BIT(self.getZeroPageOperand())
+
+  def BIT_ABS(self):
+    print("BIT"),
+    self.BIT(self.getAbsoluteOperand())
+
+  def BIT(self, operand):
+    result = self.regA & operand
+    self.setZeroIfZero(result)
+    self.setNegativeIfNegative(result)
+    #TODO set overflow
 
   def ROL(self):
     print("ROL"),
@@ -649,7 +683,12 @@ class CpuR2A03:
     self.regA = self.popStack()
 
   def BMI(self):
-    pass
+    print("BNE"),
+    if self.isNegative():
+      self.getRelativeOperand()
+    else:
+      print("$" + format(self.PC, "04x") + "  "),
+      self.PC += 2
 
   def LSR(self):
     print("LSR"),
@@ -664,7 +703,12 @@ class CpuR2A03:
     self.pushStack(self.regA)
 
   def BVC(self):
-    pass
+    print("BVC"),
+    if self.isOverflow() == False:
+      self.getRelativeOperand()
+    else:
+      print("$" + format(self.PC, "04x") + "  "),
+      self.PC += 2
   
   def CLI(self):
     print("CLI"),
@@ -722,7 +766,12 @@ class CpuR2A03:
     self.regA = self.popStack()
   
   def BVS(self):
-    pass
+    print("BVS"),
+    if self.isOverflow():
+      self.getRelativeOperand()
+    else:
+      print("$" + format(self.PC, "04x") + "  "),
+      self.PC += 2
   
   def SEI(self):
     print("SEI"),
@@ -763,7 +812,12 @@ class CpuR2A03:
     pass
 
   def BCC(self):
-    pass
+    print("BCC"),
+    if self.isCarry() == False:
+      self.getRelativeOperand()
+    else:
+      print("$" + format(self.PC, "04x") + "  "),
+      self.PC += 2
   
   def TXA(self):
     print("TXA"),
@@ -970,7 +1024,12 @@ class CpuR2A03:
     pass
   
   def BNE(self):
-    pass
+    print("BNE"),
+    if self.isZero() == False:
+      self.getRelativeOperand()
+    else:
+      print("$" + format(self.PC, "04x") + "  "),
+      self.PC += 2
   
   def CLD(self):  
     print("CLD"),
@@ -994,7 +1053,12 @@ class CpuR2A03:
     self.getImpliedOperand()
   
   def BEQ(self):
-    pass
+    print("BEQ"),
+    if self.isZero():
+      self.getRelativeOperand()
+    else:
+      print("$" + format(self.PC, "04x") + "  "),
+      self.PC += 2
   
   def SED(self):  
     print("SED"),
