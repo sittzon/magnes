@@ -8,16 +8,16 @@ class CpuR2A03:
     self.ramSize = 64*1024 #2kB CPU internal RAM, 64kB adressable
     self.ram = [0]*self.ramSize
 
-    #self.ram[5] = 0xa5
-    #self.ram[6] = 0x03
-    #self.ram[7] = 0xa9
-    #self.ram[8] = 0x30
-    #self.ram[9] = 0xa2
-    #self.ram[10] = 0xab
-    #self.ram[11] = 0xac
-    #self.ram[12] = 0xab
-    #self.ram[13] = 0xcd
-    #self.ram[0xcdab] = 0xef
+    self.ram[5] = 0xa9
+    self.ram[6] = 0x8f
+    self.ram[7] = 0xa9
+    self.ram[8] = 0x30
+    self.ram[9] = 0xa2
+    self.ram[10] = 0xab
+    self.ram[11] = 0xac
+    self.ram[12] = 0xab
+    self.ram[13] = 0xcd
+    self.ram[0xcdab] = 0xef
         
     # OPcodes
     self.ops = {
@@ -76,41 +76,41 @@ class CpuR2A03:
       '0x5d' : self.EOR_ABSX,
       '0x5e' : self.LSR,
       '0x60' : self.RTS,
-      '0x61' : self.ADC,
-      '0x65' : self.ADC,
+      '0x61' : self.ADC_INDX,
+      '0x65' : self.ADC_ZP,
       '0x66' : self.ROR,
       '0x68' : self.PLA,
-      '0x69' : self.ADC,
+      '0x69' : self.ADC_IMM,
       '0x6a' : self.ROR,
       '0x6c' : self.JMP_IND,
-      '0x6d' : self.ADC,
+      '0x6d' : self.ADC_ABS,
       '0x6e' : self.ROR,
       '0x70' : self.BVS,
-      '0x71' : self.ADC,
-      '0x75' : self.ADC,
+      '0x71' : self.ADC_INDY,
+      '0x75' : self.ADC_ZPX,
       '0x76' : self.ROR,
       '0x78' : self.SEI,
-      '0x79' : self.ADC,
-      '0x7d' : self.ADC,
+      '0x79' : self.ADC_ABSY,
+      '0x7d' : self.ADC_ABSX,
       '0x7e' : self.ROR,
-      '0x81' : self.STA,
-      '0x84' : self.STY,
-      '0x85' : self.STA,
-      '0x86' : self.STX,
+      '0x81' : self.STA_INDX,
+      '0x84' : self.STY_ZP,
+      '0x85' : self.STA_ZP,
+      '0x86' : self.STX_ZP,
       '0x88' : self.DEY,
       '0x8a' : self.TXA,
-      '0x8c' : self.STY,
-      '0x8d' : self.STA,
-      '0x8e' : self.STX,
+      '0x8c' : self.STY_ABS,
+      '0x8d' : self.STA_ABS,
+      '0x8e' : self.STX_ABS,
       '0x90' : self.BCC,
-      '0x91' : self.STA,
-      '0x94' : self.STY,
-      '0x95' : self.STA,
-      '0x96' : self.STX,
+      '0x91' : self.STA_INDY,
+      '0x94' : self.STY_ZPX,
+      '0x95' : self.STA_ZPX,
+      '0x96' : self.STX_ZPY,
       '0x98' : self.TYA,
-      '0x99' : self.STA,
+      '0x99' : self.STA_ABSY,
       '0x9a' : self.TXS,
-      '0x9c' : self.STA,
+      '0x9d' : self.STA_ABSX,
       '0xa0' : self.LDY_IMM,
       '0xa1' : self.LDA_INDX,
       '0xa2' : self.LDX_IMM,
@@ -181,7 +181,7 @@ class CpuR2A03:
   #----------------------------------------------------------------------
 
   def printRegisters(self):
-    print('(regA:%(ra)02x, regX:%(rx)02x, regY:%(ry)02x, regS:%(rs)02x, regP:%(rp)02x' %\
+    print('(A:%(ra)02x, X:%(rx)02x, Y:%(ry)02x, S:%(rs)02x, P:%(rp)02x' %\
           {"ra":self.regA, "rx":self.regX, "ry":self.regY, "rs":self.regS, "rp":self.regP})
 
   def load(self, filename):
@@ -191,8 +191,7 @@ class CpuR2A03:
     try:
       byte = f.read(1)
       i = 0
-      while byte != "":#for i in range(0,64):
-        #Do something with byte
+      while byte != "":
         if (i < 128): #Print only first bytes
           print("0x%(byte)s" % {"byte":byte.encode("hex")}),
         tempRam[i] = int(byte.encode("hex"), 16)
@@ -233,14 +232,13 @@ class CpuR2A03:
       #print("NTSC cartridge not currently supported. Aborting loading.")
       #return
 
-    #Transfer rom data to CPU memory
+    #Transfer rom data to CPU memory (only one bank is supported ATM)
+    #Start at 0xc000
     if self.romControlByte1 & 0x02 == 0x00: #Trainer not present
-      for i in range(0,60*1024-16):
-        self.ram[i] = tempLoadedRam[i+16]
+      self.ram[0xc000:16*1024] = tempLoadedRam[16:16*1024-16]
     else:
       print("512 byte trainer present")
-      for i in range(0,64*1024-16-512):
-      	self.ram[i] = tempLoadedRam[i+16+512]
+      self.ram[0xc000:16*1024] = tempLoadedRam[16+512:16*1024-16-512]
 
   def powerUp(self):
     #Start-up state
@@ -256,6 +254,9 @@ class CpuR2A03:
     self.regS = 0xfd #Stack pointer, 8 bit, offset from $0100, wraps around on overflow
     self.regP = 0 #Processor status flag bits, 8 bit
     self.PC = 0 #Program counter, 16 bit
+
+    #TEMPORARY FOR NESTEST - RUNS ALL TESTS IN SEQUENCE
+    self.PC = 0xc000
 
   def run(self):
     i = 0
@@ -280,11 +281,8 @@ class CpuR2A03:
     self.ram[0x4015] = 0x00 #All sound disabled
 
   #----------------------------------------------------------------------
-  # ADRESSING MODES
+  # HELPER FUNCTIONS
   #----------------------------------------------------------------------
-
-  def printSpacesBeforeOpcode(self):
-    print("     "),
 
   def getTwoBytes(self, adress):
     low = self.ram[adress]
@@ -299,67 +297,69 @@ class CpuR2A03:
     self.regS -= 1
     return self.ram[self.regS + 1];
 
+  def zeroPageWrapping(self, adress):
+    return adress % 0xff
+
+  #----------------------------------------------------------------------
+  # ADRESSING MODES
+  #----------------------------------------------------------------------
+
   def getImpliedOperand(self):
     self.PC += 1
+    print("       "),
 
   def getAccumulatorOperand(self):
     self.PC += 1
+    print("       "),
 
   def getImmediateOperand(self):
     operand = self.ram[self.PC + 1]
-    print("#$" + format(operand, "02x") + " "),
+    print("#$" + format(operand, "02x") + "   "),
     self.PC += 2
     return operand
 
   def getZeroPageOperand(self):
     adress = self.ram[self.PC + 1]
-    if adress > 0xff:
-      adress -= 0xff
+    adress = self.zeroPageWrapping(adress)
     operand = self.ram[adress]
-    print("$" + format(adress, "02x") + "  "),
+    print("$" + format(adress, "02x") + "    "),
     self.PC += 2
     return operand
 
-  def getZeroPageXOperand(self, adress):
-    adressZeroPage = self.ram[self.ram[self.PC +1]]
-    adress = adressZeroPage + self.regX
-    if adress > 0xff:
-      adress -= 0xff
+  def getZeroPageXOperand(self):
+    adressZeroPage = self.ram[self.ram[self.PC +1]] + self.regX
+    adress = self.zeroPageWrapping(adress)
     operand = self.ram[adress]
-    print("$" + format(adress, "02x") + "  "),
+    print("$" + format(adress, "02x") + ",X  "),
     self.PC += 2
     return operand
 
-  def getZeroPageYOperand(self, adress):
-    adressZeroPage = self.ram[self.ram[self.PC + 1]]
-    adress = adressZeroPage + self.regY
-    if adress > 0xff:
-      adress -= 0xff
+  def getZeroPageYOperand(self):
+    adressZeroPage = self.ram[self.ram[self.PC + 1]] + self.regY
+    adress = self.zeroPageWrapping(adress)
     operand = self.ram[adress]
-    print("$" + format(adress, "02x") + "  "),
+    print("$" + format(adress, "02x") + ",Y  "),
     self.PC += 2
     return operand
 
   def getAbsoluteOperand(self):
     adress = self.getTwoBytes(self.PC + 1)
     operand = self.ram[adress]
-    print("$" + format(adress, "04x")),
+    print("$" + format(adress, "04x") + "  "),
     self.PC += 3
     return operand
 
   def getAbsoluteXOperand(self):
-    adress = self.getTwoBytes(self.PC + 1)
-    adress += self.regX
+    adress = self.getTwoBytes(self.PC + 1) + self.regX
     operand = self.ram[adress]
-    print("$" + format(adress, "04x") + ".X"),
+    print("$" + format(adress, "04x") + ",X"),
     self.PC += 3
     return operand
 
   def getAbsoluteYOperand(self):
-    adress = self.getTwoBytes(self.PC + 1)
-    adress += self.regY
+    adress = self.getTwoBytes(self.PC + 1) + self.regY
     operand = self.ram[adress]
-    print("$" + format(adress, "04x") + ".Y"),
+    print("$" + format(adress, "04x") + ",Y"),
     self.PC += 3
     return operand
 
@@ -373,14 +373,12 @@ class CpuR2A03:
 
   #AKA Indexed Indirect or pre-indexed
   def getIndirectXOperand(self):
-    adress1 = self.ram[self.PC + 1]
-    adress2 = adress1 + self.regX
-    adress3 = self.getTwoBytes(adress2)
-    operand = self.ram[adress3]
+    adress1 = self.ram[self.PC + 1] + self.regX
+    adress2 = self.getTwoBytes(adress1)
+    operand = self.ram[adress2]
     print("($" + format(adress1, "02x") + ",X)"),
     self.PC += 2
     return operand
-
 
   #AKA Indirect Indexed or post-indexed
   def getIndirectYOperand(self):
@@ -388,20 +386,20 @@ class CpuR2A03:
     adress2 = self.getTwoBytes(adress1)
     adress3 = adress2 + self.regY
     operand = self.ram[adress3]
-    print("($" + format(adress1, "02x") + ",Y)"),
+    print("($" + format(adress1, "02x") + "),Y"),
     self.PC += 2
     return operand
 
   def getRelativeOperand(self):
-    operand = self.ram[self.PC + 2]
-    #if condition:
-    if (operand & 0x80 != 0x00): #Negative adress
+    operand = self.ram[self.PC + 1]
+    if (operand & 0x80): #Negative adress
       operand = ~operand + 1 #Bitwise flip and add 1 -> two-complement
       self.PC -= operand
     else:
       self.PC += operand
-    print("$RELATIVENOTIMPLEMENTED" + format(operand, "02x")),
     self.PC += 2
+    print("$" + format(self.PC, "04x") + "  "),
+    return operand
    	
   #----------------------------------------------------------------------
   # PROCESSOR STATUS FLAGS
@@ -419,7 +417,7 @@ class CpuR2A03:
   def setNegative(self):
     self.regP |= 0x80
   def setNegativeIfNegative(self, operand):
-    if operand & 0x80 != 0x00: #MSB is set when zero in two-complement
+    if operand & 0x80: #MSB is set when zero in two-complement
       self.setNegative()
     else:
       self.clearNegative()
@@ -490,7 +488,6 @@ class CpuR2A03:
   #----------------------------------------------------------------------
 
   def BRK(self):
-    self.printSpacesBeforeOpcode()
     print("BRK"),
     self.getImpliedOperand()
 
@@ -525,30 +522,49 @@ class CpuR2A03:
     self.setZeroIfZero(self.regA)
 
   def ASL(self):
-    pass
+    print("ASL"),
+    self.getImpliedOperand()
+    if self.regA & 0x70 != 0x00: #MSB set
+      self.setCarry()
+    self.regA <<= 1
 
   def BPL(self):
     pass
 
   def PHP(self):
-    pass
+    print("PHP"),
+    self.getImpliedOperand()
+    self.pushStack(self.regP)
 
+  #Hack implementation!
   def JMP_ABS(self):
-    self.JMP(self.getAbsoluteOperand())
+    print("JMP"),
+    adress = self.getTwoBytes(self.PC + 1)
+    print("$" + format(adress, "04x") + "  "),
+    self.PC += 3
+    self.JMP(adress)#self.getAbsoluteOperand())
 
   def JMP_IND(self):
+    print("JMP"),
     self.JMP(self.getIndirectOperand())
 
   def JMP(self, operand):
-    print("JMP"),
-    #Push PC,A,P
-    self.pushStack(self.PC)
-    self.pushStack(self.regA)
+    #Push PC,P
+    self.pushStack(self.PC >> 4)
+    self.pushStack(self.PC & 0xff)
     self.pushStack(self.regP)
     self.PC = operand
 
+  #Hack implementation!
   def JSR(self):
-    pass
+    print("JSR"),
+    adress = self.getTwoBytes(self.PC + 1)
+    print("$" + format(adress, "04x") + "  "),
+    self.PC += 3
+    self.pushStack(self.PC >> 4)
+    self.pushStack(self.PC & 0xff)
+    self.pushStack(self.regP)
+    self.PC = adress
 
   def AND_IMM(self):
     self.AND(self.getImmediateOperand())
@@ -584,7 +600,6 @@ class CpuR2A03:
     pass
 
   def ROL(self):
-    self.printSpacesBeforeOpcode()
     print("ROL"),
     self.getImpliedOperand()
     tempCarry = self.isCarry()
@@ -594,7 +609,6 @@ class CpuR2A03:
     self.regA += tempCarry
 
   def SEC(self):
-    self.printSpacesBeforeOpcode()
     print("SEC"),
     self.getImpliedOperand()
     self.setCarry()
@@ -630,13 +644,14 @@ class CpuR2A03:
     self.setZeroIfZero(self.regA)
 
   def PLP(self):
-    pass
+    print("PLP"),
+    self.getImpliedOperand()
+    self.regA = self.popStack()
 
   def BMI(self):
     pass
 
   def LSR(self):
-    self.printSpacesBeforeOpcode()
     print("LSR"),
     self.getImpliedOperand()
     if self.regA & 0x01 != 0x00: #LSB set
@@ -644,22 +659,55 @@ class CpuR2A03:
     self.regA >>= 1
 
   def PHA(self):
-    pass
+    print("PHA"),
+    self.getImpliedOperand()
+    self.pushStack(self.regA)
 
   def BVC(self):
     pass
   
   def CLI(self):
-    self.printSpacesBeforeOpcode()
     print("CLI"),
     self.getImpliedOperand()
     self.clearInterrupt()
   
-  def ADC(self):
-    pass
+  def ADC_IMM(self):
+    self.ADC(self.getImmediateOperand())
+  
+  def ADC_ZP(self):
+    self.ADC(self.getZeroPageOperand())
+  
+  def ADC_ZPX(self):
+    self.ADC(self.getZeroPageXOperand)
+  
+  def ADC_ABS(self):
+    self.ADC(self.getAbsoluteOperand)
+  
+  def ADC_ABSX(self):
+    self.ADC(self.getAbsoluteXOperand)
+  
+  def ADC_ABSY(self):
+    self.ADC(self.getAbsoluteYOperand)
+  
+  def ADC_INDX(self):
+    self.ADC(self.getIndirectXOperand)
+  
+  def ADC_INDY(self):
+    self.ADC(self.getIndirectYOperand)
+  
+  def ADC(self, operand):
+    print("ADC"),
+    self.setNegativeIfNegative(operand)
+    self.setZeroIfZero(operand)
+    carry = 0
+    if isCarry():
+      carry = 1
+    if self.regA + operand + carry > 0xff:
+      self.setOverflow()
+    self.regA += operand + carry
+    self.clearCarry()
   
   def ROR(self):
-    self.printSpacesBeforeOpcode()
     print("ROR"),
     self.getImpliedOperand()
     tempCarry = self.isCarry()
@@ -669,22 +717,47 @@ class CpuR2A03:
     self.regA += tempCarry << 8
   
   def PLA(self):
-    pass
+    print("PLA"),
+    self.getImpliedOperand()
+    self.regA = self.popStack()
   
   def BVS(self):
     pass
   
   def SEI(self):
-    self.printSpacesBeforeOpcode()
     print("SEI"),
     self.getImpliedOperand()
     self.setInterrupt()
   
-  def STY(self):
-    pass
+  def STY_ZP(self):
+    print("STY"),
+    self.STY(self.getZeroPageOperand())
   
-  def STX(self):
-    pass
+  def STY_ZPX(self):
+    print("STY"),
+    self.STY(self.getZeroPageXOperand())
+  
+  def STY_ABS(self):
+    print("STY"),
+    self.STY(self.getAbsoluteOperand())
+  
+  def STY(self, operand):
+    self.ram[operand] = self.regY    
+  
+  def STX_ZP(self):
+    print("STX"),
+    self.STX(self.getZeroPageOperand())
+  
+  def STX_ZPY(self):
+    print("STX"),
+    self.STX(self.getZeroPageYOperand())
+  
+  def STX_ABS(self):
+    print("STX"),
+    self.STX(self.getAbsoluteOperand())
+  
+  def STX(self, operand):
+    self.ram[operand] = self.regX
   
   def DEY(self):
     pass
@@ -693,7 +766,6 @@ class CpuR2A03:
     pass
   
   def TXA(self):
-    self.printSpacesBeforeOpcode()
     print("TXA"),
     self.getImpliedOperand()
     self.setNegativeIfNegative(self.regX)
@@ -701,7 +773,6 @@ class CpuR2A03:
     self.regA = self.regX
   
   def TYA(self):
-    self.printSpacesBeforeOpcode()
     print("TYA"),
     self.getImpliedOperand()
     self.setNegativeIfNegative(self.regY)
@@ -709,7 +780,6 @@ class CpuR2A03:
     self.regA = self.regY
   
   def TXS(self):
-    self.printSpacesBeforeOpcode()
     print("TXS"),
     self.getImpliedOperand()
     self.setNegativeIfNegative(self.regX)
@@ -717,7 +787,6 @@ class CpuR2A03:
     self.regS = self.regX
 
   def TAY(self):
-    self.printSpacesBeforeOpcode()
     print("TAY"),
     self.getImpliedOperand()
     self.setNegativeIfNegative(self.regA)
@@ -725,7 +794,6 @@ class CpuR2A03:
     self.regY = self.regA
   
   def TAX(self):
-    self.printSpacesBeforeOpcode()
     print("TAX"),
     self.getImpliedOperand()
     self.setNegativeIfNegative(self.regA)
@@ -733,49 +801,56 @@ class CpuR2A03:
     self.regX = self.regA
 
   def LDY_ZP(self):
+    print("LDY"),
     self.LDY(self.getZeroPageOperand())
   
   def LDY_IMM(self):
+    print("LDY"),
     self.LDY(self.getImmediateOperand())
 
   def LDY_ABS(self):
+    print("LDY"),
     self.LDY(self.getAbsoluteOperand())
 
   def LDY_ZPX(self):
+    print("LDY"),
     self.LDY(self.getZeroPageXOperand())
 
   def LDY_ABSX(self):
+    print("LDY"),
     self.LDY(self.getAbsoluteXOperand())
 
   def LDY(self, operand):
-    print("LDY"),
     self.setNegativeIfNegative(operand)
     self.setZeroIfZero(operand)
     self.regY = operand
 
   def LDX_ZP(self):
+    print("LDX"),
     self.LDX(self.getZeroPageOperand())
 
   def LDX_IMM(self):
+    print("LDX"),
     self.LDX(self.getImmediateOperand())
 
   def LDX_ABS(self):
+    print("LDX"),
     self.LDX(self.getAbsoluteOperand())
 
   def LDX_ZPY(self):
+    print("LDX"),
     self.LDX(self.getZeroPageYOperand())
 
   def LDX_ABSY(self):
+    print("LDX"),
     self.LDX(self.getAbsoluteYOperand())
 
   def LDX(self, operand):
-    print("LDX"),
     self.setNegativeIfNegative(operand)
     self.setZeroIfZero(operand)
     self.regX = operand
   
   def CLC(self):
-    self.printSpacesBeforeOpcode()
     print("CLC"),
     self.getImpliedOperand()
     self.clearCarry()
@@ -784,57 +859,95 @@ class CpuR2A03:
     print("RTS"),
     #Pop reverse order JMP
     self.regP = self.popStack()
-    self.regA = self.popStack()
     self.regPC = self.popStack()
+    self.regPC += self.popStack() << 4
     self.getImpliedOperand()
 
   def RTI(self):
     pass
 
-  def STA(self):
-    pass
+  def STA_ZP(self):
+    print("STA"),
+    self.STA(self.getZeroPageOperand())
+
+  def STA_ZPX(self):
+    print("STA"),
+    self.STA(self.getZeroPageXOperand())
+
+  def STA_ABS(self):
+    print("STA"),
+    self.STA(self.getAbsoluteOperand())
+
+  def STA_ABSX(self):
+    print("STA"),
+    self.STA(self.getAbsoluteXOperand())
+
+  def STA_ABSY(self):
+    print("STA"),
+    self.STA(self.getAbsoluteYOperand())
+
+  def STA_INDX(self):
+    print("STA"),
+    self.STA(self.getIndirectXOperand())
+
+  def STA_INDY(self):
+    print("STA"),
+    self.STA(self.getIndirectYOperand())
+
+  def STA(self, operand):
+    self.ram[operand] = self.regA
 
   def LDA_INDX(self):
+    print("LDA"),
     self.LDA(self.getIndirectXOperand())
 
   def LDA_ZP(self):
+    print("LDA"),
     self.LDA(self.getZeroPageOperand())
 
   def LDA_IMM(self):
+    print("LDA"),
     self.LDA(self.getImmediateOperand())
 
   def LDA_ABS(self):
+    print("LDA"),
     self.LDA(self.getAbsoluteOperand())
 
   def LDA_INDY(self):
+    print("LDA"),
     self.LDA(self.getIndirectYOperand())
 
   def LDA_ZPX(self):
+    print("LDA"),
     self.LDA(self.getZeroPageXOperand())
 
   def LDA_ABSY(self):
+    print("LDA"),
     self.LDA(self.getAbsoluteYOperand())
 
   def LDA_ABSX(self):
+    print("LDA"),
     self.LDA(self.getAbsoluteXOperand())
 
   def LDA(self, operand):
-    print("LDA"),
     self.setNegativeIfNegative(operand)
     self.setZeroIfZero(operand)
     self.regA = operand
 
   def BCS(self):
-    pass
+    print("BCS"),
+    if self.isCarry():
+      self.getRelativeOperand()
+    else:
+      print("$" + format(self.PC, "04x") + "  "),
+      self.PC += 2
   
   def CLV(self):
-    self.printSpacesBeforeOpcode()    
     print("CLV"),
     self.getImpliedOperand()
     self.clearOverflow()
   
   def TSX(self):
-    self.printSpacesBeforeOpcode()
     print("TSX"),
     self.getImpliedOperand()
     self.setNegativeIfNegative(self.regS)
@@ -859,8 +972,7 @@ class CpuR2A03:
   def BNE(self):
     pass
   
-  def CLD(self):
-    self.printSpacesBeforeOpcode()    
+  def CLD(self):  
     print("CLD"),
     self.getImpliedOperand()
     self.clearDecimal()
@@ -878,15 +990,13 @@ class CpuR2A03:
     pass
   
   def NOP(self):
-    self.printSpacesBeforeOpcode()
     print("NOP"),
     self.getImpliedOperand()
   
   def BEQ(self):
     pass
   
-  def SED(self):
-    self.printSpacesBeforeOpcode()    
+  def SED(self):  
     print("SED"),
     self.getImpliedOperand()
     self.setDecimal()

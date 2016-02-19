@@ -15,4 +15,4 @@ class Main:
         self.cpu.run()
 
 mainInstance = Main()
-mainInstance.start('nestest.nes')
+mainInstance.start('tests/nestest.nes')
