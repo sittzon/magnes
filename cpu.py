@@ -215,8 +215,8 @@ class CpuR2A03:
     finally:
       f.close()
       
-    #Verify 'NES'
-    if (tempRam[0] != 0x4e) or (tempRam[1] != 0x45) or (tempRam[2] != 0x53):
+    #Verify 'NES' + MS-DOS end-of-file
+    if (tempRam[0] != 0x4e) or (tempRam[1] != 0x45) or (tempRam[2] != 0x53) or (tempRam[3] != 0x1a):
       print("String 'NES' not found. Aborting loading.")
     else:
       self.loadNES(tempRam)
@@ -225,13 +225,23 @@ class CpuR2A03:
 
 
   def loadNES(self, tempLoadedRam):
-    self.nrOf16kbRomBanks = tempLoadedRam[4]
-    self.nrOf8kbVromBanks = tempLoadedRam[5]
-    self.nrOf8kbRamBanks = tempLoadedRam[8]
+    self.nrOf16kbPrgRomBanks = tempLoadedRam[4]
+    self.nrOf8kbChrRomBanks = tempLoadedRam[5] #0 means CHR RAM (AKA VRAM)
+    self.romControlByte1 = tempLoadedRam[6]
+    self.romControlByte2 = tempLoadedRam[7]
+    self.nrOf8kbPrgRamBanks = tempLoadedRam[8]
 
-    self.isPal = False
-    if tempLoadedRam[9] == 0x01:
-      self.isPal = True
+
+    isZero = True
+    for i in range(9,16):
+      if tempLoadedRam[i] != 0x00:
+        isZero = False
+    if isZero == False:
+      print("Required format not correct")
+
+    #self.isPal = False
+    #if tempLoadedRam[9] == 0x01:
+    #  self.isPal = True
 
     #if self.isPal == False:
       #print("isPal: " + str(self.isPal) + ", " + str(tempLoadedRam[8]))
@@ -239,8 +249,13 @@ class CpuR2A03:
       #return
 
     #Transfer rom data to CPU memory
-    for i in range(0,2*1024):
-      self.ram[i] = tempLoadedRam[i+16]
+    if self.romControlByte1 & 0x02 == 0x00: #Trainer not present
+      print("512 byte trainer present")
+      for i in range(0,2*1024):
+        self.ram[i] = tempLoadedRam[i+16]
+    else:
+      for i in range(0,2*1024):
+      	self.ram[i] = tempLoadedRam[i+16+512]
 
   def powerUp(self):
     #Start-up state
@@ -408,7 +423,7 @@ class CpuR2A03:
   def setNegative(self):
     self.regP |= 0x80
   def setNegativeIfNegative(self, operand):
-    if operand > 0x7f:
+    if operand & 0x80 != 0x00: #MSB is set when zero in two-complement
       self.setNegative()
     else:
       self.clearNegative()
@@ -523,7 +538,9 @@ class CpuR2A03:
     pass
 
   def JMP(self):
+    self.printSpacesBeforeOpcode()
     print("JMPNOTIMPLEMENTED"),
+    self.getImpliedOperand()
     self.getRelativeOperand()
 
   def JSR(self):
@@ -622,7 +639,7 @@ class CpuR2A03:
     self.printSpacesBeforeOpcode()
     print("CLI"),
     self.getImpliedOperand()
-    self.setInterrupt()
+    self.clearInterrupt()
   
   def ADC(self):
     pass
@@ -637,7 +654,10 @@ class CpuR2A03:
     pass
   
   def SEI(self):
-    pass
+    self.printSpacesBeforeOpcode()
+    print("SEI"),
+    self.getImpliedOperand()
+    self.setInterrupt()
   
   def STY(self):
     pass
@@ -652,26 +672,44 @@ class CpuR2A03:
     pass
   
   def TXA(self):
-    pass
-    #print("TXA"),
-    #self.regA = self.regX
+    self.printSpacesBeforeOpcode()
+    print("TXA"),
+    self.getImpliedOperand()
+    self.setNegativeIfNegative(self.regX)
+    self.setZeroIfZero(self.regX)
+    self.regA = self.regX
   
   def TYA(self):
-    pass
+    self.printSpacesBeforeOpcode()
+    print("TYA"),
+    self.getImpliedOperand()
+    self.setNegativeIfNegative(self.regY)
+    self.setZeroIfZero(self.regY)
+    self.regA = self.regY
   
   def TXS(self):
-    pass
-  
-  def TXY(self):
-    pass
+    self.printSpacesBeforeOpcode()
+    print("TXS"),
+    self.getImpliedOperand()
+    self.setNegativeIfNegative(self.regX)
+    self.setZeroIfZero(self.regX)
+    self.regS = self.regX
 
   def TAY(self):
-    pass
-    #self.regA = self.regY
+    self.printSpacesBeforeOpcode()
+    print("TAY"),
+    self.getImpliedOperand()
+    self.setNegativeIfNegative(self.regA)
+    self.setZeroIfZero(self.regA)
+    self.regY = self.regA
   
   def TAX(self):
-    pass
-    #self.regA = self.regX
+    self.printSpacesBeforeOpcode()
+    print("TAX"),
+    self.getImpliedOperand()
+    self.setNegativeIfNegative(self.regA)
+    self.setZeroIfZero(self.regA)
+    self.regX = self.regA
 
   def LDY_ZP(self):
     self.LDY(self.getZeroPageOperand())
@@ -766,10 +804,18 @@ class CpuR2A03:
     pass
   
   def CLV(self):
-    pass
+    self.printSpacesBeforeOpcode()    
+    print("CLV"),
+    self.getImpliedOperand()
+    self.clearOverflow()
   
   def TSX(self):
-    pass
+    self.printSpacesBeforeOpcode()
+    print("TSX"),
+    self.getImpliedOperand()
+    self.setNegativeIfNegative(self.regS)
+    self.setZeroIfZero(self.regS)
+    self.regX = self.regS
   
   def CPY(self):
     pass
