@@ -5,33 +5,19 @@ class CpuR2A03:
     #1.773447Mhz for PAL (System 26.601171Mhz / 15)
     clockHertz = 1.773447*1000000 #PAL
 
-    #Memory - 2kB
     self.ramSize = 64*1024 #2kB CPU internal RAM, 64kB adressable
     self.ram = [0]*self.ramSize
-    self.ram[5] = 0xa5
-    self.ram[6] = 0x03
-    self.ram[7] = 0xa9
-    self.ram[8] = 0x30
-    self.ram[9] = 0xa2
-    self.ram[10] = 0xab
-    self.ram[11] = 0xac
-    self.ram[12] = 0xab
-    self.ram[13] = 0xcd
-    self.ram[0xcdab] = 0xef
 
-    #Start-up state
-    self.ram[0x4015] = 0x00 #All sound disabled
-    self.ram[0x4017] = 0x00 #Frame IRQ enabled
-    for i in range(0, 16):
-      self.ram[0x4000 + i] = 0x00
-
-    #Registers
-    self.regA = 0 #Accumulator register, 8 bit
-    self.regX = 0 #Index register 1, 8 bit
-    self.regY = 0 #Index register 2, 8 bit
-    self.regS = 0xfd #Stack pointer, 8 bit, offset from $0100, wraps around on overflow
-    self.regP = 0 #Processor status flag bits, 8 bit
-    self.PC = 0 #Program counter, 16 bit
+    #self.ram[5] = 0xa5
+    #self.ram[6] = 0x03
+    #self.ram[7] = 0xa9
+    #self.ram[8] = 0x30
+    #self.ram[9] = 0xa2
+    #self.ram[10] = 0xab
+    #self.ram[11] = 0xac
+    #self.ram[12] = 0xab
+    #self.ram[13] = 0xcd
+    #self.ram[0xcdab] = 0xef
         
     # OPcodes
     self.ops = {
@@ -78,7 +64,7 @@ class CpuR2A03:
       '0x48' : self.PHA,
       '0x49' : self.EOR_IMM,
       '0x4a' : self.LSR,
-      '0x4c' : self.JMP,
+      '0x4c' : self.JMP_ABS,
       '0x4d' : self.EOR_ABS,
       '0x4e' : self.LSR,
       '0x50' : self.BVC,
@@ -96,7 +82,7 @@ class CpuR2A03:
       '0x68' : self.PLA,
       '0x69' : self.ADC,
       '0x6a' : self.ROR,
-      '0x6c' : self.JMP,
+      '0x6c' : self.JMP_IND,
       '0x6d' : self.ADC,
       '0x6e' : self.ROR,
       '0x70' : self.BVS,
@@ -231,7 +217,6 @@ class CpuR2A03:
     self.romControlByte2 = tempLoadedRam[7]
     self.nrOf8kbPrgRamBanks = tempLoadedRam[8]
 
-
     isZero = True
     for i in range(9,16):
       if tempLoadedRam[i] != 0x00:
@@ -250,11 +235,11 @@ class CpuR2A03:
 
     #Transfer rom data to CPU memory
     if self.romControlByte1 & 0x02 == 0x00: #Trainer not present
-      print("512 byte trainer present")
-      for i in range(0,2*1024):
+      for i in range(0,60*1024-16):
         self.ram[i] = tempLoadedRam[i+16]
     else:
-      for i in range(0,2*1024):
+      print("512 byte trainer present")
+      for i in range(0,64*1024-16-512):
       	self.ram[i] = tempLoadedRam[i+16+512]
 
   def powerUp(self):
@@ -305,6 +290,14 @@ class CpuR2A03:
     low = self.ram[adress]
     high = self.ram[adress + 1] << 8
     return high + low
+
+  def pushStack(self, value):
+    self.ram[self.regS] = value
+    self.regS += 1
+
+  def popStack(self):
+    self.regS -= 1
+    return self.ram[self.regS + 1];
 
   def getImpliedOperand(self):
     self.PC += 1
@@ -374,7 +367,7 @@ class CpuR2A03:
     adress1 = self.getTwoBytes(self.PC + 1)
     adress2 = self.getTwoBytes(adress1)
     operand = self.ram[adress2]
-    print("$" + format(adress1, "04x")),
+    print("($" + format(adress1, "04x") + ")"),
     self.PC += 3
     return operand
 
@@ -384,7 +377,7 @@ class CpuR2A03:
     adress2 = adress1 + self.regX
     adress3 = self.getTwoBytes(adress2)
     operand = self.ram[adress3]
-    print("$" + format(adress1, "02x") + ",X"),
+    print("($" + format(adress1, "02x") + ",X)"),
     self.PC += 2
     return operand
 
@@ -395,15 +388,18 @@ class CpuR2A03:
     adress2 = self.getTwoBytes(adress1)
     adress3 = adress2 + self.regY
     operand = self.ram[adress3]
-    print("$" + format(adress1, "02x") + ",Y"),
+    print("($" + format(adress1, "02x") + ",Y)"),
     self.PC += 2
     return operand
 
   def getRelativeOperand(self):
     operand = self.ram[self.PC + 2]
-    operand -= 0x80
     #if condition:
-    #  self.PC += operand
+    if (operand & 0x80 != 0x00): #Negative adress
+      operand = ~operand + 1 #Bitwise flip and add 1 -> two-complement
+      self.PC -= operand
+    else:
+      self.PC += operand
     print("$RELATIVENOTIMPLEMENTED" + format(operand, "02x")),
     self.PC += 2
    	
@@ -537,11 +533,19 @@ class CpuR2A03:
   def PHP(self):
     pass
 
-  def JMP(self):
-    self.printSpacesBeforeOpcode()
-    print("JMPNOTIMPLEMENTED"),
-    self.getImpliedOperand()
-    self.getRelativeOperand()
+  def JMP_ABS(self):
+    self.JMP(self.getAbsoluteOperand())
+
+  def JMP_IND(self):
+    self.JMP(self.getIndirectOperand())
+
+  def JMP(self, operand):
+    print("JMP"),
+    #Push PC,A,P
+    self.pushStack(self.PC)
+    self.pushStack(self.regA)
+    self.pushStack(self.regP)
+    self.PC = operand
 
   def JSR(self):
     pass
@@ -580,7 +584,14 @@ class CpuR2A03:
     pass
 
   def ROL(self):
-    pass
+    self.printSpacesBeforeOpcode()
+    print("ROL"),
+    self.getImpliedOperand()
+    tempCarry = self.isCarry()
+    if self.regA & 0x70 != 0x00: #MSB set
+      self.setCarry()
+    self.regA <<= 1
+    self.regA += tempCarry
 
   def SEC(self):
     self.printSpacesBeforeOpcode()
@@ -626,8 +637,11 @@ class CpuR2A03:
 
   def LSR(self):
     self.printSpacesBeforeOpcode()
-    print("LSRNOTIMPLEMENTED"),
+    print("LSR"),
     self.getImpliedOperand()
+    if self.regA & 0x01 != 0x00: #LSB set
+      self.setCarry()
+    self.regA >>= 1
 
   def PHA(self):
     pass
@@ -645,7 +659,14 @@ class CpuR2A03:
     pass
   
   def ROR(self):
-    pass
+    self.printSpacesBeforeOpcode()
+    print("ROR"),
+    self.getImpliedOperand()
+    tempCarry = self.isCarry()
+    if self.regA & 0x01 != 0x00: #LSB set
+      self.setCarry()
+    self.regA >>= 1
+    self.regA += tempCarry << 8
   
   def PLA(self):
     pass
@@ -759,14 +780,17 @@ class CpuR2A03:
     self.getImpliedOperand()
     self.clearCarry()
 
-  #Return to calling subroutine
   def RTS(self):
-    pass
+    print("RTS"),
+    #Pop reverse order JMP
+    self.regP = self.popStack()
+    self.regA = self.popStack()
+    self.regPC = self.popStack()
+    self.getImpliedOperand()
 
   def RTI(self):
     pass
 
-  #Store accumulator into memory location (operand)
   def STA(self):
     pass
 
