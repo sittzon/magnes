@@ -7,7 +7,7 @@ class CpuR2A03:
 
     self.ramSize = 64*1024 #2kB CPU internal RAM, 64kB adressable
     self.ram = [0]*self.ramSize
-    self.ramOffset = 0x0100
+    self.stackOffset = 0x0100
 
     self.ram[5] = 0xa9
     self.ram[6] = 0x8f
@@ -139,41 +139,40 @@ class CpuR2A03:
       '0xc1' : self.CMP_INDX,
       '0xc4' : self.CPY_ZP,
       '0xc5' : self.CMP_ZP,
-      '0xc6' : self.DEC,
+      '0xc6' : self.DEC_ZP,
       '0xc8' : self.INY,
       '0xc9' : self.CMP_IMM,
       '0xca' : self.DEX,
       '0xcc' : self.CPY_ABS,
       '0xcd' : self.CMP_ABS,
-      '0xce' : self.DEC,
+      '0xce' : self.DEC_ABS,
       '0xd0' : self.BNE,
       '0xd1' : self.CMP_INDY,
       '0xd5' : self.CMP_ZPX,
-      '0xd6' : self.DEC,
+      '0xd6' : self.DEC_ZPX,
       '0xd8' : self.CLD,
       '0xd9' : self.CMP_ABSY,
       '0xdd' : self.CMP_ABSX,
-      '0xde' : self.DEC,
-      '0xde' : self.DEC,
+      '0xde' : self.DEC_ABSX,
       '0xe0' : self.CPX_IMM,
       '0xe1' : self.SBC,
       '0xe4' : self.CPX_ZP,
       '0xe5' : self.SBC,
-      '0xe6' : self.INC,
+      '0xe6' : self.INC_ZP,
       '0xe8' : self.INX,
       '0xe9' : self.SBC,
       '0xea' : self.NOP,
       '0xec' : self.CPX_ABS,
       '0xed' : self.SBC,
-      '0xee' : self.INC,
+      '0xee' : self.INC_ABS,
       '0xf0' : self.BEQ,
       '0xf1' : self.SBC,
       '0xf5' : self.SBC,
-      '0xf6' : self.INC,
+      '0xf6' : self.INC_ZPX,
       '0xf8' : self.SED,
       '0xf9' : self.SBC,
       '0xfd' : self.SBC,
-      '0xfe' : self.INC
+      '0xfe' : self.INC_ABSX
       }
 
   #----------------------------------------------------------------------
@@ -270,7 +269,7 @@ class CpuR2A03:
 
       #Print registers
       self.printRegisters()
-      i += 1
+      #i += 1
 
   def reset(self):
     #A,X,Y not affected
@@ -284,25 +283,34 @@ class CpuR2A03:
   # HELPER FUNCTIONS
   #----------------------------------------------------------------------
 
-  def getTwoBytes(self, adress):
-    low = self.ram[adress]
-    high = self.ram[adress + 1] << 8
-    return high + low
-
   def pushStack(self, value):
-    self.ram[self.regS + self.ramOffset] = value
-    self.regS += 1
+    self.writeByte(self.regS + self.stackOffset, value)
+    self.regS -= 1
     self.regS = self.regS % 0xff
 
-
   def popStack(self):
-    returnValue = self.ram[self.regS + self.ramOffset + 1]
-    self.regS -= 1
+    returnValue = self.readByte(self.regS + self.stackOffset)
+    self.regS += 1
     self.regS = self.regS % 0xff
     return returnValue;
 
   def zeroPageWrapping(self, adress):
     return adress % 0xff
+
+  def writeByte(self, adress, value):
+    self.ram[adress] = value
+
+  def writeWord(self, adress, value):
+    self.ram[adress] = value >> 8
+    self.ram[adress + 1] = value & 0x00ff
+
+  def readByte(self, adress):
+    return self.ram[adress]
+
+  def readWord(self, adress):
+    low = self.ram[adress]
+    high = self.ram[adress + 1] << 8
+    return high + low
 
   #----------------------------------------------------------------------
   # ADRESSING MODES
@@ -314,88 +322,104 @@ class CpuR2A03:
 
   def getAccumulatorOperand(self):
     self.PC += 1
-    print("       "),
+    print("A      "),
 
   def getImmediateOperand(self):
-    operand = self.ram[self.PC + 1]
+    operand = self.readByte(self.PC + 1)
     print("#$" + format(operand, "02x") + "   "),
     self.PC += 2
     return operand
 
-  def getZeroPageOperand(self):
-    adressZeroPage = self.ram[self.PC + 1]
+  def getZeroPageAdress(self):
+    adressZeroPage = self.readByte(self.PC + 1)
     adress = self.zeroPageWrapping(adressZeroPage)
-    operand = self.ram[adress]
+    return adress
+
+  def getZeroPageOperand(self):
+    adress = self.getZeroPageAdress()
+    operand = self.readByte(adress)
     print("$" + format(adress, "02x") + "    "),
     self.PC += 2
     return operand
 
-  def getZeroPageXOperand(self):
-    adressZeroPage = self.ram[self.ram[self.PC +1]] + self.regX
+  def getZeroPageXAdress(self):
+    adressZeroPage = self.readByte(self.readByte(self.PC +1)) + self.regX
     adress = self.zeroPageWrapping(adressZeroPage)
-    operand = self.ram[adress]
+    return adress
+
+  def getZeroPageXOperand(self):
+    adress = self.getZeroPageXAdress()
+    operand = self.readByte(adress)
     print("$" + format(adress, "02x") + ",X  "),
     self.PC += 2
     return operand
 
   def getZeroPageYOperand(self):
-    adressZeroPage = self.ram[self.ram[self.PC + 1]] + self.regY
+    adressZeroPage = self.readByte(self.readByte(self.PC + 1)) + self.regY
     adress = self.zeroPageWrapping(adressZeroPage)
-    operand = self.ram[adress]
+    operand = self.readByte(adress)
     print("$" + format(adress, "02x") + ",Y  "),
     self.PC += 2
     return operand
 
+  def getAbsoluteAdress(self):
+    adress = self.readWord(self.PC + 1)
+    return adress
+
   def getAbsoluteOperand(self):
-    adress = self.getTwoBytes(self.PC + 1)
-    operand = self.ram[adress]
+    adress = self.getAbsoluteAdress()
+    operand = self.readByte(adress)
     print("$" + format(adress, "04x") + "  "),
     self.PC += 3
     return operand
 
+  def getAbsoluteXAdress(self):
+    adress = self.readWord(self.PC + 1) + self.regX
+    return adress
+
   def getAbsoluteXOperand(self):
-    adress = self.getTwoBytes(self.PC + 1) + self.regX
-    operand = self.ram[adress]
+    adress = self.getAbsoluteXAdress()
+    operand = self.readByte(adress)
     print("$" + format(adress, "04x") + ",X"),
     self.PC += 3
     return operand
 
   def getAbsoluteYOperand(self):
-    adress = self.getTwoBytes(self.PC + 1) + self.regY
-    operand = self.ram[adress]
+    adress = self.readWord(self.PC + 1) + self.regY
+    operand = self.readByte(adress)
     print("$" + format(adress, "04x") + ",Y"),
     self.PC += 3
     return operand
 
   def getIndirectOperand(self):
-    adress1 = self.getTwoBytes(self.PC + 1)
-    adress2 = self.getTwoBytes(adress1)
-    operand = self.ram[adress2]
+    adress1 = self.readWord(self.PC + 1)
+    adress2 = self.readWord(adress1)
+    operand = self.readByte(adress2)
     print("($" + format(adress1, "04x") + ")"),
     self.PC += 3
     return operand
 
   #AKA Indexed Indirect or pre-indexed
   def getIndirectXOperand(self):
-    adress1 = self.ram[self.PC + 1] + self.regX
-    adress2 = self.getTwoBytes(adress1)
-    operand = self.ram[adress2]
+    adress1 = self.readByte(self.PC + 1) + self.regX
+    adress2 = self.readWord(adress1)
+    operand = self.readByte(adress2)
     print("($" + format(adress1, "02x") + ",X)"),
     self.PC += 2
     return operand
 
   #AKA Indirect Indexed or post-indexed
   def getIndirectYOperand(self):
-    adress1 = self.ram[self.PC + 1]
-    adress2 = self.getTwoBytes(adress1)
+    adress1 = self.readByte(self.PC + 1)
+    adress2 = self.readWord(adress1)
     adress3 = adress2 + self.regY
-    operand = self.ram[adress3]
+    operand = self.readByte(adress3)
     print("($" + format(adress1, "02x") + "),Y"),
     self.PC += 2
     return operand
 
   def getRelativeOperand(self):
-    operand = self.ram[self.PC + 1]
+    operand = self.readByte(self.PC + 1)
     if (operand & 0x80): #Negative adress
       operand = ~operand + 1 #Bitwise flip and add 1 -> two-complement
       result = self.PC - operand + 2
@@ -652,10 +676,53 @@ class CpuR2A03:
     self.regA += operand + carry
     self.clearCarry()
 
+  def SBC_IMM(self):
+    print("SBC"),
+    self.SBC(self.getImmediateOperand())
+
+  def SBC_ZP(self):
+    print("SBC"),
+    self.SBC(self.getZeroPageOperand())
+
+  def SBC_ZPX(self):
+    print("SBC"),
+    self.SBC(self.getZeroPageXOperand())
+
+  def SBC_ABS(self):
+    print("SBC"),
+    self.SBC(self.getAbsoluteOperand())
+
+  def SBC_ABSX(self):
+    print("SBC"),
+    self.SBC(self.getAbsoluteXOperand())
+
+  def SBC_ABSY(self):
+    print("SBC"),
+    self.SBC(self.getAbsoluteYOperand())
+
+  def SBC_INDX(self):
+    print("SBC"),
+    self.SBC(self.getIndirectXOperand())
+
+  def SBC_INDY(self):
+    print("SBC"),
+    self.SBC(self.getIndirectYOperand())
+
+  def SBC(self, operand):
+    self.setNegativeIfNegative(operand)
+    self.setZeroIfZero(operand)
+    carry = 0
+    if self.isCarry():
+      carry = 1
+    if self.regA - operand - carry > 0xff:
+      self.setOverflow()
+    self.regA -= operand + carry
+    self.clearCarry()
+
   #Hack implementation!
   def JMP_ABS(self):
     print("JMP"),
-    adress = self.getTwoBytes(self.PC + 1)
+    adress = self.readWord(self.PC + 1)
     print("$" + format(adress, "04x") + "  "),
     self.PC += 3
     self.JMP(adress)#self.getAbsoluteOperand())
@@ -670,13 +737,27 @@ class CpuR2A03:
   #Hack implementation!
   def JSR(self):
     print("JSR"),
-    adress = self.getTwoBytes(self.PC + 1)
+    adress = self.readWord(self.PC + 1)
     print("$" + format(adress, "04x") + "  "),
     self.PC += 3
     self.pushStack(self.PC >> 4)
     self.pushStack(self.PC & 0xff)
     self.pushStack(self.regP)
     self.PC = adress
+
+  def RTS(self):
+    print("RTS"),
+    #Pop reverse order JSR
+    self.regP = self.popStack()
+    self.regPC = self.popStack()
+    self.regPC += self.popStack() << 4
+    self.getImpliedOperand()
+ 
+  def RTI(self):
+    print("RTI"),
+    self.regP = self.popStack()
+    self.regPC = self.popStack()
+    self.regPC += self.popStack() << 4
 
   def BMI(self):
     print("BMI"),
@@ -741,14 +822,6 @@ class CpuR2A03:
       self.PC = result
     else:
       self.PC += 2
-
-  def RTS(self):
-    print("RTS"),
-    #Pop reverse order JSR
-    self.regP = self.popStack()
-    self.regPC = self.popStack()
-    self.regPC += self.popStack() << 4
-    self.getImpliedOperand()
 
   def BIT_ZP(self):
     print("BIT"),
@@ -864,7 +937,7 @@ class CpuR2A03:
     self.STY(self.getAbsoluteOperand())
   
   def STY(self, operand):
-    self.ram[operand] = self.regY    
+    self.writeByte(operand, self.regY)    
   
   def STX_ZP(self):
     print("STX"),
@@ -879,7 +952,7 @@ class CpuR2A03:
     self.STX(self.getAbsoluteOperand())
   
   def STX(self, operand):
-    self.ram[operand] = self.regX
+    self.writeByte(operand, self.regX)
   
   def TXA(self):
     print("TXA"),
@@ -995,7 +1068,7 @@ class CpuR2A03:
     self.STA(self.getIndirectYOperand())
 
   def STA(self, operand):
-    self.ram[operand] = self.regA
+    self.writeByte(operand, self.regA)
 
   def LDA_INDX(self):
     print("LDA"),
@@ -1140,25 +1213,73 @@ class CpuR2A03:
       self.clearNegative()
   
   def DEY(self):
-    pass
-
-  def DEC(self):
-    pass
+    print("DEY"),
+    self.regY -= 1
+    self.setZeroIfZero(self.regY)
+    self.setNegativeIfNegative(self.regY)
+    self.getImpliedOperand()
   
   def INY(self):
-    pass
+    print("INY"),
+    self.regY += 1
+    self.setZeroIfZero(self.regY)
+    self.setNegativeIfNegative(self.regY)
+    self.getImpliedOperand()
   
   def DEX(self):
-    pass
-  
-  def SBC(self):
-    pass
-  
-  def INC(self):
-    pass
-
-  def RTI(self):
-    pass
+    print("DEX"),
+    self.regX -= 1
+    self.setZeroIfZero(self.regX)
+    self.setNegativeIfNegative(self.regX)
+    self.getImpliedOperand()
   
   def INX(self):
-    pass
+    print("INX"),
+    self.regX += 1
+    self.setZeroIfZero(self.regX)
+    self.setNegativeIfNegative(self.regX)
+    self.getImpliedOperand()
+
+  def DEC_ZP(self):
+    print("DEC"),
+    self.DEC(self.getZeroPageAdress(), self.getZeroPageOperand())
+
+  def DEC_ZPX(self):
+    print("DEC"),
+    self.DEC(self.getZeroPageXAdress(), self.getZeroPageXOperand())
+
+  def DEC_ABS(self):
+    print("DEC"),
+    self.DEC(self.getAbsoluteAdress(), self.getAbsoluteOperand())
+
+  def DEC_ABSX(self):
+    print("DEC"),
+    self.DEC(self.getAbsoluteXAdress(), self.getAbsoluteXOperand())
+
+  def DEC(self, adress, operand):
+    operand -= 1
+    self.writeByte(adress, operand)
+    self.setZeroIfZero(operand)
+    self.setNegativeIfNegative(operand)
+  
+  def INC_ZP(self):
+    print("INC"),
+    self.INC(self.getZeroPageAdress(), self.getZeroPageOperand())
+  
+  def INC_ZPX(self):
+    print("INC"),
+    self.INC(self.getZeroPageXAdress(), self.getZeroPageXOperand())
+  
+  def INC_ABS(self):
+    print("INC"),
+    self.INC(self.getAbsoluteAdress(), self.getAbsoluteOperand())
+  
+  def INC_ABSX(self):
+    print("INC"),
+    self.INC(self.getAbsoluteXAdress(), self.getAbsoluteXOperand())
+  
+  def INC(self, adress, operand):
+    operand += 1
+    self.writeByte(adress, operand)
+    self.setZeroIfZero(operand)
+    self.setNegativeIfNegative(operand)
