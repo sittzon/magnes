@@ -155,23 +155,23 @@ class CpuR2A03:
       '0xdd' : self.CMP_ABSX,
       '0xde' : self.DEC_ABSX,
       '0xe0' : self.CPX_IMM,
-      '0xe1' : self.SBC,
+      '0xe1' : self.SBC_INDX,
       '0xe4' : self.CPX_ZP,
-      '0xe5' : self.SBC,
+      '0xe5' : self.SBC_ZP,
       '0xe6' : self.INC_ZP,
       '0xe8' : self.INX,
-      '0xe9' : self.SBC,
+      '0xe9' : self.SBC_IMM,
       '0xea' : self.NOP,
       '0xec' : self.CPX_ABS,
-      '0xed' : self.SBC,
+      '0xed' : self.SBC_ABS,
       '0xee' : self.INC_ABS,
       '0xf0' : self.BEQ,
-      '0xf1' : self.SBC,
-      '0xf5' : self.SBC,
+      '0xf1' : self.SBC_INDY,
+      '0xf5' : self.SBC_ZPX,
       '0xf6' : self.INC_ZPX,
       '0xf8' : self.SED,
-      '0xf9' : self.SBC,
-      '0xfd' : self.SBC,
+      '0xf9' : self.SBC_ABSY,
+      '0xfd' : self.SBC_ABSX,
       '0xfe' : self.INC_ABSX
       }
 
@@ -180,19 +180,18 @@ class CpuR2A03:
   #----------------------------------------------------------------------
 
   def printRegisters(self):
-    print('(A:%(ra)02x, X:%(rx)02x, Y:%(ry)02x, S:%(rs)02x, P:%(rp)02x' %\
-          {"ra":self.regA, "rx":self.regX, "ry":self.regY, "rs":self.regS, "rp":self.regP})
+    print('A:%(ra)02x, X:%(rx)02x, Y:%(ry)02x, S:%(rs)02x, P:%(rp)02x' %\
+          {"ra":self.currentRegA, "rx":self.currentRegX, "ry":self.currentRegY, "rs":self.currentRegS, "rp":self.currentRegP})
 
   def load(self, filename):
     print("Loading " + filename + " ...")
+    #Load bytes from file
     tempRam = [0]*self.ramSize
     f = open(filename, 'rb')
     try:
       byte = f.read(1)
       i = 0
       while byte != "":
-        #if (i < 128): #Print only first bytes
-        #  print("0x%(byte)s" % {"byte":byte.encode("hex")}),
         tempRam[i] = int(byte.encode("hex"), 16)
         byte = f.read(1)
         i += 1
@@ -202,43 +201,52 @@ class CpuR2A03:
     #Verify 'NES' + MS-DOS end-of-file
     if (tempRam[0] != 0x4e) or (tempRam[1] != 0x45) or (tempRam[2] != 0x53) or (tempRam[3] != 0x1a):
       print("String 'NES' not found. Aborting loading.")
-    else:
-      self.loadNES(tempRam)
-      
-    print("Loading complete.")
+      return
+    
+    self.nrOf16kbPrgRomBanks = tempRam[4]
+    self.nrOf8kbChrRomBanks = tempRam[5] #0 means CHR RAM (AKA VRAM)
+    self.romControlByte1 = tempRam[6]
+    self.romControlByte2 = tempRam[7]
+    self.nrOf8kbPrgRamBanks = tempRam[8]
 
+    print(str(self.nrOf16kbPrgRomBanks) + " 16kbPrgRomBank(s) detected")
+    print(str(self.nrOf8kbChrRomBanks) + " 8kbChrRomBank(s) detected")
+    print(str(self.nrOf8kbPrgRamBanks) + " 8kbPrgRomBank(s) detected")
 
-  def loadNES(self, tempLoadedRam):
-    self.nrOf16kbPrgRomBanks = tempLoadedRam[4]
-    self.nrOf8kbChrRomBanks = tempLoadedRam[5] #0 means CHR RAM (AKA VRAM)
-    self.romControlByte1 = tempLoadedRam[6]
-    self.romControlByte2 = tempLoadedRam[7]
-    self.nrOf8kbPrgRamBanks = tempLoadedRam[8]
-
-    isZero = True
+    allZero = True
     for i in range(9,16):
-      if tempLoadedRam[i] != 0x00:
-        isZero = False
-    if isZero == False:
-      print("Required format not correct")
+      if tempRam[i] != 0x00:
+        allZero = False
+    if allZero == False:
+      print("Required format (zeros at [0x0009-0x000f]) not correct")
+      return
 
     #self.isPal = False
-    #if tempLoadedRam[9] == 0x01:
+    #if tempRam[9] == 0x01:
     #  self.isPal = True
 
     #if self.isPal == False:
-      #print("isPal: " + str(self.isPal) + ", " + str(tempLoadedRam[8]))
+      #print("isPal: " + str(self.isPal) + ", " + str(tempRam[8]))
       #print("NTSC cartridge not currently supported. Aborting loading.")
       #return
 
-    #Transfer rom data to CPU memory (only one bank is supported ATM)
-    #Start at 0xc000
-    if self.romControlByte1 & 0x02 == 0x00: #Trainer not present
-      self.ram[0xc000:16*1024] = tempLoadedRam[16:16*1024-16]
-    else:
-      print("512 byte trainer present")
-      self.ram[0xc000:16*1024] = tempLoadedRam[16+512:16*1024-16-512]
+    self.offsetTrainer = 0
+    if self.romControlByte1 & 0x02 != 0x00: #Trainer present
+      print("Trainer detected")
+      self.offsetTrainer = 512
 
+    #Transfer rom data to CPU memory (only 1 or 2 banks ATM)
+    offsetPrg = 16
+    offset16kb = 16*1024
+    if self.nrOf16kbPrgRomBanks == 1:
+        self.ram[0x8000:0x8000+offset16kb] = tempRam[offsetPrg+self.offsetTrainer:offset16kb-offsetPrg-self.offsetTrainer]
+        self.ram[0xc000:0xc000+offset16kb] = tempRam[offsetPrg+self.offsetTrainer:offset16kb-offsetPrg-self.offsetTrainer]
+    elif self.nrOf16kbPrgRomBanks == 2:
+        self.ram[0x8000:0x8000+offset16kb] = tempRam[offsetPrg+self.offsetTrainer:offset16kb-offsetPrg-self.offsetTrainer]
+        self.ram[0xc000:0xc000+offset16kb] = tempRam[offsetPrg+self.offsetTrainer+offset16kb:2*offset16kb-offsetPrg-self.offsetTrainer]
+
+    print("Loading complete.")
+    
   def powerUp(self):
     #Start-up state
     self.ram[0x4015] = 0x00 #All sound disabled
@@ -252,10 +260,7 @@ class CpuR2A03:
     self.regY = 0 #Index register 2, 8 bit
     self.regS = 0xfd #Stack pointer, 8 bit, offset from $0100, wraps around on overflow
     self.regP = 0 #Processor status flag bits, 8 bit
-    self.PC = 0 #Program counter, 16 bit
-
-    #TODO: Remove
-    self.PC = 0xc000
+    self.PC = 0xc000 #Program counter, 16 bit (0xc000 start of prg-rom)
 
   def run(self):
     i = 0
@@ -263,6 +268,12 @@ class CpuR2A03:
       #Fetch opcode, print
       self.currentOpcode = self.ram[self.PC]
       print("%(pc)04x:%(op)02x" % {"pc":self.PC, "op":self.currentOpcode}),
+      #Save current registers for output
+      self.currentRegA = self.regA
+      self.currentRegX = self.regX
+      self.currentRegY = self.regY
+      self.currentRegS = self.regS
+      self.currentRegP = self.regP
 
       #Execute instruction
       self.ops[format(self.currentOpcode, '#04x')]()
@@ -289,16 +300,24 @@ class CpuR2A03:
     self.regS = self.regS % 0xff
 
   def popStack(self):
-    returnValue = self.readByte(self.regS + self.stackOffset)
     self.regS += 1
     self.regS = self.regS % 0xff
+    returnValue = self.readByte(self.regS + self.stackOffset)
     return returnValue;
 
   def zeroPageWrapping(self, adress):
     return adress % 0xff
 
+  #Mirror memory if write to certain adresses
   def writeByte(self, adress, value):
-    self.ram[adress] = value
+    if adress <= 0x00ff or (0x0800 <= adress <= 0x08ff) or (0x1000 <= adress <= 0x10ff) or (0x1800 < adress <= 0x18ff): #Zero page
+      self.ram[adress] = value
+      self.ram[adress + 0x0800] = value
+      self.ram[adress + 0x1000] = value
+      self.ram[adress + 0x1800] = value
+      print("Write zero page"),
+    else:
+      self.ram[adress] = value
 
   def writeWord(self, adress, value):
     self.ram[adress] = value >> 8
@@ -436,7 +455,7 @@ class CpuR2A03:
   #       | N | V |   | B | D | I | Z | C |  <-- flag, 0/1 = reset/set
   #       +---+---+---+---+---+---+---+---+
   #(N)egative, O(V)erflow, (B)inary, (D)ecimal, (I)nterrupt, (Z)ero, (C)arry
-  def isNegative(self):
+  def isNegativeFlagSet(self):
     if (self.regP & 0x80):
       return True
     else:
@@ -450,7 +469,7 @@ class CpuR2A03:
       self.clearNegative()
   def clearNegative(self):
     self.regP &= 0x7f
-  def isOverflow(self):
+  def isOverflowFlagSet(self):
     if (self.regP & 0x40):
       return True
     else:
@@ -459,16 +478,16 @@ class CpuR2A03:
     self.regP |= 0x40
   def clearOverflow(self):
     self.regP &= 0xbf
-  def isBinary(self):
+  def isBreakFlagSet(self):
     if (self.regP & 0x10):
       return True
     else:
       return False
-  def setBinary(self):
+  def setBreak(self):
     self.regP |= 0x10
-  def clearBinary(self):
+  def clearBreak(self):
     self.regP &= 0xef
-  def isDecimal(self):
+  def isDecimalFlagSet(self):
     if (self.regP & 0x08):
       return True
     else:
@@ -486,13 +505,11 @@ class CpuR2A03:
     self.regP |= 0x04
   def clearInterrupt(self):
     self.regP &= 0xfb
-  def isZero(self):
-    if (self.regP & 0x02):
-      return True
-    else:
-      return False
+
   def setZero(self):
     self.regP |= 0x02
+  def getZero(self):
+    return (self.regP & 0x02) >> 1
   def setZeroIfZero(self, operand):
     if operand == 0x00:
       self.setZero()
@@ -500,13 +517,11 @@ class CpuR2A03:
       self.clearZero()
   def clearZero(self):
     self.regP &= 0xfd
-  def isCarry(self):
-    if (self.regP & 0x01):
-      return True
-    else:
-      return False
+
   def setCarry(self):
     self.regP |= 0x01
+  def getCarry(self):
+    return self.regP & 0x01
   def clearCarry(self):
     self.regP &= 0xfe
 
@@ -516,6 +531,7 @@ class CpuR2A03:
 
   def BRK(self):
     print("BRK"),
+    self.setBreak()
     self.getImpliedOperand()
 
   def NOP(self):
@@ -666,14 +682,13 @@ class CpuR2A03:
     self.ADC(self.getIndirectYOperand)
   
   def ADC(self, operand):
-    self.setNegativeIfNegative(operand)
-    self.setZeroIfZero(operand)
-    carry = 0
-    if self.isCarry():
-      carry = 1
-    if self.regA + operand + carry > 0xff:
+    if self.regA + operand + self.getCarry() > 0xff:
       self.setOverflow()
-    self.regA += operand + carry
+    else:
+      self.clearOverflow()
+    self.regA += operand + self.getCarry()
+    self.setNegativeIfNegative(self.regA)
+    self.setZeroIfZero(self.regA)
     self.clearCarry()
 
   def SBC_IMM(self):
@@ -711,12 +726,11 @@ class CpuR2A03:
   def SBC(self, operand):
     self.setNegativeIfNegative(operand)
     self.setZeroIfZero(operand)
-    carry = 0
-    if self.isCarry():
-      carry = 1
-    if self.regA - operand - carry > 0xff:
+    if self.regA - operand - self.getCarry() > 0xff:
       self.setOverflow()
-    self.regA -= operand + carry
+    else:
+      self.clearOverflow()
+    self.regA -= operand + self.getCarry()
     self.clearCarry()
 
   #Hack implementation!
@@ -725,7 +739,7 @@ class CpuR2A03:
     adress = self.readWord(self.PC + 1)
     print("$" + format(adress, "04x") + "  "),
     self.PC += 3
-    self.JMP(adress)#self.getAbsoluteOperand())
+    self.JMP(adress)
 
   def JMP_IND(self):
     print("JMP"),
@@ -739,30 +753,27 @@ class CpuR2A03:
     print("JSR"),
     adress = self.readWord(self.PC + 1)
     print("$" + format(adress, "04x") + "  "),
-    self.PC += 3
-    self.pushStack(self.PC >> 4)
-    self.pushStack(self.PC & 0xff)
-    self.pushStack(self.regP)
+    self.PC += 2
+    self.pushStack(self.PC >> 8)
+    self.pushStack(self.PC & 0x00ff)
     self.PC = adress
 
   def RTS(self):
     print("RTS"),
     #Pop reverse order JSR
-    self.regP = self.popStack()
-    self.regPC = self.popStack()
-    self.regPC += self.popStack() << 4
+    self.PC = self.popStack()
+    self.PC += self.popStack() << 8
     self.getImpliedOperand()
  
   def RTI(self):
     print("RTI"),
-    self.regP = self.popStack()
-    self.regPC = self.popStack()
-    self.regPC += self.popStack() << 4
+    self.PC = self.popStack() << 8
+    self.PC += self.popStack()
 
   def BMI(self):
     print("BMI"),
     result = self.getRelativeOperand()
-    if self.isNegative():
+    if self.isNegativeFlagSet():
       self.PC = result
     else:
       self.PC += 2
@@ -770,7 +781,7 @@ class CpuR2A03:
   def BVC(self):
     print("BVC"),
     result = self.getRelativeOperand()
-    if self.isOverflow() == False:
+    if self.isOverflowFlagSet() == False:
       self.PC = result
     else:
       self.PC += 2
@@ -778,7 +789,7 @@ class CpuR2A03:
   def BCC(self):
     print("BCC"),
     result = self.getRelativeOperand()
-    if self.isCarry() == False:
+    if self.getCarry() == 0x00:
       self.PC = result
     else:
       self.PC += 2
@@ -786,7 +797,7 @@ class CpuR2A03:
   def BVS(self):
     print("BVS"),
     result = self.getRelativeOperand()
-    if self.isOverflow():
+    if self.isOverflowFlagSet():
       self.PC = result
     else:
       self.PC += 2
@@ -794,7 +805,7 @@ class CpuR2A03:
   def BCS(self):
     print("BCS"),
     result = self.getRelativeOperand()
-    if self.isCarry():
+    if self.getCarry() == 0x01:
       self.PC = result
     else:
       self.PC += 2
@@ -802,24 +813,24 @@ class CpuR2A03:
   def BPL(self):
     print("BPL"),
     result = self.getRelativeOperand()
-    if self.isNegative() == False:
+    if self.isNegativeFlagSet() == False:
       self.PC = result
     else:
       self.PC += 2
   
   def BEQ(self):
     print("BEQ"),
-    result = self.getRelativeOperand()
-    if self.isZero():
-      self.PC = result
+    adress = self.getRelativeOperand()
+    if self.getZero() == 0x01:
+      self.PC = adress
     else:
       self.PC += 2
   
   def BNE(self):
     print("BNE"),
-    result = self.getRelativeOperand()
-    if self.isZero() == False:
-      self.PC = result
+    adress = self.getRelativeOperand()
+    if self.getZero() == 0x00:
+      self.PC = adress
     else:
       self.PC += 2
 
@@ -835,14 +846,15 @@ class CpuR2A03:
     result = self.regA & operand
     self.setZeroIfZero(result)
     self.setNegativeIfNegative(result)
-    #TODO set overflow
 
   def ROL(self):
     print("ROL"),
     self.getImpliedOperand()
-    tempCarry = self.isCarry()
+    tempCarry = self.getCarry()
     if self.regA & 0x70 != 0x00: #MSB set
       self.setCarry()
+    else:
+      self.clearCarry()
     self.regA <<= 1
     self.regA += tempCarry
 
@@ -851,6 +863,8 @@ class CpuR2A03:
     self.getImpliedOperand()
     if self.regA & 0x01 != 0x00: #LSB set
       self.setCarry()
+    else:
+      self.clearCarry()
     self.regA >>= 1
 
   def ASL(self):
@@ -858,14 +872,18 @@ class CpuR2A03:
     self.getImpliedOperand()
     if self.regA & 0x70 != 0x00: #MSB set
       self.setCarry()
+    else:
+      self.clearCarry()
     self.regA <<= 1
   
   def ROR(self):
     print("ROR"),
     self.getImpliedOperand()
-    tempCarry = self.isCarry()
+    tempCarry = self.getCarry()
     if self.regA & 0x01 != 0x00: #LSB set
       self.setCarry()
+    else:
+      self.clearCarry()
     self.regA >>= 1
     self.regA += tempCarry << 8
 
@@ -882,7 +900,7 @@ class CpuR2A03:
   def PLP(self):
     print("PLP"),
     self.getImpliedOperand()
-    self.regA = self.popStack()
+    self.regP = self.popStack()
   
   def PLA(self):
     print("PLA"),
@@ -899,16 +917,6 @@ class CpuR2A03:
     self.getImpliedOperand()
     self.setInterrupt()
   
-  def CLI(self):
-    print("CLI"),
-    self.getImpliedOperand()
-    self.clearInterrupt()
-  
-  def CLC(self):
-    print("CLC"),
-    self.getImpliedOperand()
-    self.clearCarry()
-  
   def SED(self):  
     print("SED"),
     self.getImpliedOperand()
@@ -924,6 +932,16 @@ class CpuR2A03:
     self.getImpliedOperand()
     self.clearOverflow()
   
+  def CLC(self):
+    print("CLC"),
+    self.getImpliedOperand()
+    self.clearCarry()
+  
+  def CLI(self):
+    print("CLI"),
+    self.getImpliedOperand()
+    self.clearInterrupt()
+  
   def STY_ZP(self):
     print("STY"),
     self.STY(self.getZeroPageOperand())
@@ -937,7 +955,7 @@ class CpuR2A03:
     self.STY(self.getAbsoluteOperand())
   
   def STY(self, operand):
-    self.writeByte(operand, self.regY)    
+    self.regY = operand
   
   def STX_ZP(self):
     print("STX"),
@@ -952,7 +970,7 @@ class CpuR2A03:
     self.STX(self.getAbsoluteOperand())
   
   def STX(self, operand):
-    self.writeByte(operand, self.regX)
+    self.regX = operand
   
   def TXA(self):
     print("TXA"),
@@ -1068,7 +1086,7 @@ class CpuR2A03:
     self.STA(self.getIndirectYOperand())
 
   def STA(self, operand):
-    self.writeByte(operand, self.regA)
+    self.regA = operand
 
   def LDA_INDX(self):
     print("LDA"),
@@ -1112,6 +1130,7 @@ class CpuR2A03:
     self.getImpliedOperand()
     self.setNegativeIfNegative(self.regS)
     self.setZeroIfZero(self.regS)
+    self.clearCarry()
     self.regX = self.regS
 
   def CMP_IMM(self):
