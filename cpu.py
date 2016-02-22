@@ -459,6 +459,10 @@ class CpuR2A03:
   #       | N | V |   | B | D | I | Z | C |  <-- flag, 0/1 = reset/set
   #       +---+---+---+---+---+---+---+---+
   #(N)egative, O(V)erflow, (B)inary, (D)ecimal, (I)nterrupt, (Z)ero, (C)arry
+
+  def clearAllFlags(self):
+    self.regP & 0x00
+
   def isNegativeFlagSet(self):
     if (self.regP & 0x80):
       return True
@@ -575,6 +579,7 @@ class CpuR2A03:
     self.ORA(self.getIndirectYOperand())
 
   def ORA(self, operand):
+    self.clearAllFlags()
     self.regA = operand | self.regA
     self.setNegativeIfNegative(self.regA)
     self.setZeroIfZero(self.regA)
@@ -649,6 +654,7 @@ class CpuR2A03:
     self.EOR(self.getIndirectYOperand())
 
   def EOR(self, operand):
+    self.clearAllFlags()
     self.regA = operand ^ self.regA
     self.setNegativeIfNegative(self.regA)
     self.setZeroIfZero(self.regA)
@@ -686,14 +692,12 @@ class CpuR2A03:
     self.ADC(self.getIndirectYOperand)
   
   def ADC(self, operand):
+    self.clearAllFlags()
     if self.regA + operand + self.getCarry() > 0xff:
       self.setOverflow()
-    else:
-      self.clearOverflow()
     self.regA += operand + self.getCarry()
     self.setNegativeIfNegative(self.regA)
     self.setZeroIfZero(self.regA)
-    self.clearCarry()
 
   def SBC_IMM(self):
     print("SBC"),
@@ -728,14 +732,12 @@ class CpuR2A03:
     self.SBC(self.getIndirectYOperand())
 
   def SBC(self, operand):
+    self.clearAllFlags()
     self.setNegativeIfNegative(operand)
     self.setZeroIfZero(operand)
     if self.regA - operand - self.getCarry() > 0xff:
       self.setOverflow()
-    else:
-      self.clearOverflow()
     self.regA -= operand + self.getCarry()
-    self.clearCarry()
 
   #Hack implementation!
   def JMP_ABS(self):
@@ -857,41 +859,37 @@ class CpuR2A03:
 
   def ROL(self):
     print("ROL"),
+    self.clearAllFlags()
     self.getImpliedOperand()
     tempCarry = self.getCarry()
     if self.regA & 0x70 != 0x00: #MSB set
       self.setCarry()
-    else:
-      self.clearCarry()
     self.regA <<= 1
     self.regA += tempCarry
 
   def LSR(self):
     print("LSR"),
+    self.clearAllFlags()
     self.getImpliedOperand()
     if self.regA & 0x01 != 0x00: #LSB set
       self.setCarry()
-    else:
-      self.clearCarry()
     self.regA >>= 1
 
   def ASL(self):
     print("ASL"),
+    self.clearAllFlags()
     self.getImpliedOperand()
     if self.regA & 0x70 != 0x00: #MSB set
       self.setCarry()
-    else:
-      self.clearCarry()
     self.regA <<= 1
   
   def ROR(self):
     print("ROR"),
+    self.clearAllFlags()
     self.getImpliedOperand()
     tempCarry = self.getCarry()
     if self.regA & 0x01 != 0x00: #LSB set
       self.setCarry()
-    else:
-      self.clearCarry()
     self.regA >>= 1
     self.regA += tempCarry << 8
 
@@ -1039,46 +1037,47 @@ class CpuR2A03:
   
   def TXA(self):
     print("TXA"),
+    self.clearAllFlags()
     self.getImpliedOperand()
     self.setNegativeIfNegative(self.regX)
     self.setZeroIfZero(self.regX)
-    self.clearCarry()
     self.regA = self.regX
   
   def TYA(self):
     print("TYA"),
+    self.clearAllFlags()
     self.getImpliedOperand()
     self.setNegativeIfNegative(self.regY)
     self.setZeroIfZero(self.regY)
-    self.clearCarry()
     self.regA = self.regY
   
   def TSX(self):
     print("TSX"),
+    self.clearAllFlags()
     self.getImpliedOperand()
     self.setNegativeIfNegative(self.regS)
     self.setZeroIfZero(self.regS)
-    self.clearCarry()
     self.regX = self.regS
   
   def TXS(self):
     print("TXS"),
+    self.clearAllFlags()
     self.getImpliedOperand()
     self.setNegativeIfNegative(self.regX)
     self.setZeroIfZero(self.regX)
-    self.clearCarry()
     self.regS = self.regX
 
   def TAY(self):
     print("TAY"),
+    self.clearAllFlags()
     self.getImpliedOperand()
     self.setNegativeIfNegative(self.regA)
     self.setZeroIfZero(self.regA)
-    self.clearCarry()
     self.regY = self.regA
   
   def TAX(self):
     print("TAX"),
+    self.clearAllFlags()
     self.getImpliedOperand()
     self.setNegativeIfNegative(self.regA)
     self.setZeroIfZero(self.regA)
@@ -1105,6 +1104,7 @@ class CpuR2A03:
     self.LDY(self.getAbsoluteXOperand())
 
   def LDY(self, operand):
+    self.clearAllFlags()
     self.setNegativeIfNegative(operand)
     self.setZeroIfZero(operand)
     self.regY = operand
@@ -1130,6 +1130,7 @@ class CpuR2A03:
     self.LDX(self.getAbsoluteYOperand())
 
   def LDX(self, operand):
+    self.clearAllFlags()
     self.setNegativeIfNegative(operand)
     self.setZeroIfZero(operand)
     self.regX = operand
@@ -1167,6 +1168,7 @@ class CpuR2A03:
     self.LDA(self.getAbsoluteXOperand())
 
   def LDA(self, operand):
+    self.clearAllFlags()
     self.setNegativeIfNegative(operand)
     self.setZeroIfZero(operand)
     self.regA = operand
@@ -1204,18 +1206,11 @@ class CpuR2A03:
     self.CMP(self.getIndirectYOperand())
   
   def CMP(self, operand):
+    self.clearAllFlags()
     if self.regA >= operand:
       self.setCarry()
-    else:
-      self.clearCarry()
-    if self.regA == operand:
-      self.setZero()
-    else:
-      self.clearZero()
-    if self.regA | 0x70: #Value is negative
-      self.setNegative()
-    else:
-      self.clearNegative()
+    self.setZeroIfZero(self.regA)
+    self.setNegativeIfNegative(self.regA)
 
   def CPY_IMM(self):
     print("CPY"),
@@ -1230,18 +1225,11 @@ class CpuR2A03:
     self.CPY(self.getAbsoluteOperand())
 
   def CPY(self, operand):
+    self.clearAllFlags()
     if self.regY > operand:
       self.setCarry()
-    else:
-      self.clearCarry()
-    if self.regY == operand:
-      self.setZero()
-    else:
-      self.clearZero()
-    if self.regY | 0x70: #Value is negative
-      self.setNegative()
-    else:
-      self.clearNegative()
+    self.setZeroIfZero(self.regY)
+    self.setNegativeIfNegative(self.regY)
 
   def CPX_IMM(self):
     print("CPX"),
@@ -1256,21 +1244,15 @@ class CpuR2A03:
     self.CPX(self.getAbsoluteOperand())
 
   def CPX(self, operand):
+    self.clearAllFlags()
     if self.regX > operand:
       self.setCarry()
-    else:
-      self.clearCarry()
-    if self.regX == operand:
-      self.setZero()
-    else:
-      self.clearZero()
-    if self.regX | 0x70: #Value is negative
-      self.setNegative()
-    else:
-      self.clearNegative()
+    self.setZeroIfZero(self.regX)
+    self.setNegativeIfNegative(self.regX)
   
   def DEY(self):
     print("DEY"),
+    self.clearAllFlags()
     self.regY -= 1
     self.setZeroIfZero(self.regY)
     self.setNegativeIfNegative(self.regY)
@@ -1278,6 +1260,7 @@ class CpuR2A03:
   
   def INY(self):
     print("INY"),
+    self.clearAllFlags()
     self.regY += 1
     self.setZeroIfZero(self.regY)
     self.setNegativeIfNegative(self.regY)
@@ -1285,6 +1268,7 @@ class CpuR2A03:
   
   def DEX(self):
     print("DEX"),
+    self.clearAllFlags()
     self.regX -= 1
     self.setZeroIfZero(self.regX)
     self.setNegativeIfNegative(self.regX)
@@ -1292,6 +1276,7 @@ class CpuR2A03:
   
   def INX(self):
     print("INX"),
+    self.clearAllFlags()
     self.regX += 1
     self.setZeroIfZero(self.regX)
     self.setNegativeIfNegative(self.regX)
@@ -1314,6 +1299,7 @@ class CpuR2A03:
     self.DEC(self.getAbsoluteXAdress(), self.getAbsoluteXOperand())
 
   def DEC(self, adress, operand):
+    self.clearAllFlags()
     operand -= 1
     self.writeByte(adress, operand)
     self.setZeroIfZero(operand)
@@ -1336,6 +1322,7 @@ class CpuR2A03:
     self.INC(self.getAbsoluteXAdress(), self.getAbsoluteXOperand())
   
   def INC(self, adress, operand):
+    self.clearAllFlags()
     operand += 1
     self.writeByte(adress, operand)
     self.setZeroIfZero(operand)
