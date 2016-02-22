@@ -315,7 +315,7 @@ class CpuR2A03:
       self.ram[adress + 0x0800] = value
       self.ram[adress + 0x1000] = value
       self.ram[adress + 0x1800] = value
-      print("Write zero page"),
+      #print("$" + str(format(adress, "02x"))),
     else:
       self.ram[adress] = value
 
@@ -352,55 +352,59 @@ class CpuR2A03:
   def getZeroPageAdress(self):
     adressZeroPage = self.readByte(self.PC + 1)
     adress = self.zeroPageWrapping(adressZeroPage)
+    self.PC += 2
     return adress
 
   def getZeroPageOperand(self):
     adress = self.getZeroPageAdress()
     operand = self.readByte(adress)
     print("$" + format(adress, "02x") + "    "),
-    self.PC += 2
     return operand
 
   def getZeroPageXAdress(self):
     adressZeroPage = self.readByte(self.readByte(self.PC +1)) + self.regX
     adress = self.zeroPageWrapping(adressZeroPage)
+    self.PC += 2
     return adress
 
   def getZeroPageXOperand(self):
     adress = self.getZeroPageXAdress()
     operand = self.readByte(adress)
     print("$" + format(adress, "02x") + ",X  "),
-    self.PC += 2
     return operand
 
-  def getZeroPageYOperand(self):
-    adressZeroPage = self.readByte(self.readByte(self.PC + 1)) + self.regY
+  def getZeroPageYAdress(self):
+    adressZeroPage = self.readByte(self.readByte(self.PC +1)) + self.regY
     adress = self.zeroPageWrapping(adressZeroPage)
+    self.PC += 2
+    return adress
+
+  def getZeroPageYOperand(self):
+    adress = self.getZeroPageYAdress()
     operand = self.readByte(adress)
     print("$" + format(adress, "02x") + ",Y  "),
-    self.PC += 2
     return operand
 
   def getAbsoluteAdress(self):
     adress = self.readWord(self.PC + 1)
+    self.PC += 3
     return adress
 
   def getAbsoluteOperand(self):
     adress = self.getAbsoluteAdress()
     operand = self.readByte(adress)
     print("$" + format(adress, "04x") + "  "),
-    self.PC += 3
     return operand
 
   def getAbsoluteXAdress(self):
     adress = self.readWord(self.PC + 1) + self.regX
+    self.PC += 3
     return adress
 
   def getAbsoluteXOperand(self):
     adress = self.getAbsoluteXAdress()
     operand = self.readByte(adress)
     print("$" + format(adress, "04x") + ",X"),
-    self.PC += 3
     return operand
 
   def getAbsoluteYOperand(self):
@@ -846,6 +850,10 @@ class CpuR2A03:
     result = self.regA & operand
     self.setZeroIfZero(result)
     self.setNegativeIfNegative(result)
+    if (result | 0x70) >> 7:
+      self.setOverflow()
+    else:
+      self.clearOverflow()
 
   def ROL(self):
     print("ROL"),
@@ -941,42 +949,100 @@ class CpuR2A03:
     print("CLI"),
     self.getImpliedOperand()
     self.clearInterrupt()
+
+  def STA_ZP(self):
+    print("STA"),
+    adress = self.getZeroPageAdress()
+    print("$" + format(adress, "02x") + "    "),
+    self.STA(adress)
+
+  def STA_ZPX(self):
+    print("STA"),
+    adress = self.getZeroPageXAdress()
+    print("$" + format(adress, "02x") + "    "),
+    self.STA(adress)
+
+  def STA_ABS(self):
+    print("STA"),
+    adress = self.getAbsoluteAdress()
+    print("$" + format(adress, "04x") + "  "),
+    self.STA(adress)
+
+  def STA_ABSX(self):
+    print("STA"),
+    adress = self.getAbsoluteXAdress()
+    print("$" + format(adress, "04x") + "  "),
+    self.STA(adress)
+
+  def STA_ABSY(self):
+    print("STA"),
+    adress = self.getAbsoluteYAdress()
+    print("$" + format(adress, "04x") + "  "),
+    self.STA(adress)
+
+  def STA_INDX(self):
+    print("STA"),
+    adress = self.getIndirectXAdress()
+    print("$" + format(adress, "04x") + "  "),
+    self.STA(adress)
+
+  def STA_INDY(self):
+    print("STA"),
+    adress = self.getIndirectYAdress()
+    print("$" + format(adress, "04x") + "  "),
+    self.STA(adress)
+
+  def STA(self, adress):
+    self.writeByte(adress, self.regA)
   
   def STY_ZP(self):
     print("STY"),
-    self.STY(self.getZeroPageOperand())
+    adress = self.getZeroPageAdress()
+    print("$" + format(adress, "02x") + "    "),
+    self.STY(adress)
   
   def STY_ZPX(self):
     print("STY"),
-    self.STY(self.getZeroPageXOperand())
+    adress = self.getZeroPageXAdress()
+    print("$" + format(adress, "02x") + "    "),
+    self.STY(adress)
   
   def STY_ABS(self):
     print("STY"),
-    self.STY(self.getAbsoluteOperand())
+    adress = self.getAbsoluteAdress()
+    print("$" + format(adress, "04x") + "  "),
+    self.STY(adress)
   
-  def STY(self, operand):
-    self.regY = operand
+  def STY(self, adress):
+    self.writeByte(adress, self.regY)
   
   def STX_ZP(self):
     print("STX"),
-    self.STX(self.getZeroPageOperand())
+    adress = self.getZeroPageAdress()
+    print("$" + format(adress, "02x") + "    "),
+    self.STX(adress)
   
   def STX_ZPY(self):
     print("STX"),
-    self.STX(self.getZeroPageYOperand())
+    adress = self.getZeroPageYAdress()
+    print("$" + format(adress, "02x") + "    "),
+    self.STX(adress)
   
   def STX_ABS(self):
     print("STX"),
-    self.STX(self.getAbsoluteOperand())
+    adress = self.getAbsoluteAdress()
+    print("$" + format(adress, "04x") + "  "),
+    self.STX(adress)
   
-  def STX(self, operand):
-    self.regX = operand
+  def STX(self, adress):
+    self.writeByte(adress, self.regX)
   
   def TXA(self):
     print("TXA"),
     self.getImpliedOperand()
     self.setNegativeIfNegative(self.regX)
     self.setZeroIfZero(self.regX)
+    self.clearCarry()
     self.regA = self.regX
   
   def TYA(self):
@@ -984,13 +1050,23 @@ class CpuR2A03:
     self.getImpliedOperand()
     self.setNegativeIfNegative(self.regY)
     self.setZeroIfZero(self.regY)
+    self.clearCarry()
     self.regA = self.regY
+  
+  def TSX(self):
+    print("TSX"),
+    self.getImpliedOperand()
+    self.setNegativeIfNegative(self.regS)
+    self.setZeroIfZero(self.regS)
+    self.clearCarry()
+    self.regX = self.regS
   
   def TXS(self):
     print("TXS"),
     self.getImpliedOperand()
     self.setNegativeIfNegative(self.regX)
     self.setZeroIfZero(self.regX)
+    self.clearCarry()
     self.regS = self.regX
 
   def TAY(self):
@@ -998,6 +1074,7 @@ class CpuR2A03:
     self.getImpliedOperand()
     self.setNegativeIfNegative(self.regA)
     self.setZeroIfZero(self.regA)
+    self.clearCarry()
     self.regY = self.regA
   
   def TAX(self):
@@ -1057,37 +1134,6 @@ class CpuR2A03:
     self.setZeroIfZero(operand)
     self.regX = operand
 
-  def STA_ZP(self):
-    print("STA"),
-    self.STA(self.getZeroPageOperand())
-
-  def STA_ZPX(self):
-    print("STA"),
-    self.STA(self.getZeroPageXOperand())
-
-  def STA_ABS(self):
-    print("STA"),
-    self.STA(self.getAbsoluteOperand())
-
-  def STA_ABSX(self):
-    print("STA"),
-    self.STA(self.getAbsoluteXOperand())
-
-  def STA_ABSY(self):
-    print("STA"),
-    self.STA(self.getAbsoluteYOperand())
-
-  def STA_INDX(self):
-    print("STA"),
-    self.STA(self.getIndirectXOperand())
-
-  def STA_INDY(self):
-    print("STA"),
-    self.STA(self.getIndirectYOperand())
-
-  def STA(self, operand):
-    self.regA = operand
-
   def LDA_INDX(self):
     print("LDA"),
     self.LDA(self.getIndirectXOperand())
@@ -1124,14 +1170,6 @@ class CpuR2A03:
     self.setNegativeIfNegative(operand)
     self.setZeroIfZero(operand)
     self.regA = operand
-  
-  def TSX(self):
-    print("TSX"),
-    self.getImpliedOperand()
-    self.setNegativeIfNegative(self.regS)
-    self.setZeroIfZero(self.regS)
-    self.clearCarry()
-    self.regX = self.regS
 
   def CMP_IMM(self):
     print("CMP"),
@@ -1166,7 +1204,7 @@ class CpuR2A03:
     self.CMP(self.getIndirectYOperand())
   
   def CMP(self, operand):
-    if self.regA > operand:
+    if self.regA >= operand:
       self.setCarry()
     else:
       self.clearCarry()
