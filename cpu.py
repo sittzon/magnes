@@ -1,7 +1,7 @@
 import threading
 
 class CpuR2A03 (threading.Thread):
-  def __init__(self, filename):
+  def __init__(self, memory, writeLock, readLock):
     threading.Thread.__init__(self)
     #Clock
     #Clocked 1.789773Mhz for NTSC (System 21.47727Mhz / 12) and
@@ -10,6 +10,12 @@ class CpuR2A03 (threading.Thread):
 
     self.ramSize = 64*1024 #2kB CPU internal RAM, 64kB adressable
     self.ram = [0]*self.ramSize
+
+    #self.sharedMemory = memory
+    self.ram = memory
+    self.writeLock = writeLock
+    self.readLock = readLock
+
     self.stackOffset = 0x0100
 
     self.ram[5] = 0xa9
@@ -23,7 +29,6 @@ class CpuR2A03 (threading.Thread):
     self.ram[13] = 0xcd
     self.ram[0xcdab] = 0xef
 
-    self.load(filename)
     self.powerUp()
         
     # OPcodes
@@ -190,7 +195,7 @@ class CpuR2A03 (threading.Thread):
           {"ra":self.currentRegA, "rx":self.currentRegX, "ry":self.currentRegY, "rs":self.currentRegS, "rp":self.currentRegP,"clc":self.currentClock})
 
   def load(self, filename):
-    print("Loading " + filename + " ...")
+    print("Loading " + str(filename) + " ...")
     #Load bytes from file
     tempRam = [0]*self.ramSize
     f = open(filename, 'rb')
@@ -251,6 +256,8 @@ class CpuR2A03 (threading.Thread):
         self.ram[0x8000:0x8000+offset16kb] = tempRam[offsetPrg+self.offsetTrainer:offset16kb-offsetPrg-self.offsetTrainer]
         self.ram[0xc000:0xc000+offset16kb] = tempRam[offsetPrg+self.offsetTrainer+offset16kb:2*offset16kb-offsetPrg-self.offsetTrainer]
 
+
+    #self.sharedMemory = self.ram[:]
     print("Loading complete.")
     
   def powerUp(self):
@@ -272,6 +279,7 @@ class CpuR2A03 (threading.Thread):
   def run(self):
     print("Entering cpu thread")
     i = 0
+    self.readLock.acquire()
     while (i < 256):
       #Fetch opcode, print
       self.currentOpcode = self.ram[self.PC]
@@ -290,6 +298,8 @@ class CpuR2A03 (threading.Thread):
       #Print registers
       self.printRegisters()
       i += 1
+
+    self.readLock.release()
 
     print("Exiting cpu thread")
 
@@ -471,10 +481,6 @@ class CpuR2A03 (threading.Thread):
   #       | N | V |   | B | D | I | Z | C |  <-- flag, 0/1 = reset/set
   #       +---+---+---+---+---+---+---+---+
   #(N)egative, O(V)erflow, (B)inary, (D)ecimal, (I)nterrupt, (Z)ero, (C)arry
-
-  def clearAllFlags(self):
-    pass
-    #self.regP &= 0x00
 
   def setNegative(self):
     self.regP |= 0x80
@@ -823,7 +829,7 @@ class CpuR2A03 (threading.Thread):
     self.clock += 6
  
   def RTI(self):
-    print("RTI"),
+    print("RTI        "),
     self.PC = self.popStack() << 8
     self.PC += self.popStack()
     self.clock += 6
@@ -1514,7 +1520,11 @@ class CpuR2A03 (threading.Thread):
   
   def INY(self):
     print("INY"),
+    oldNegativeBit = self.regY & 0x80
     self.regY += 1
+    if (oldNegativeBit != (self.regY & 0x80)):
+      self.setOverflow()
+    self.regY &= 0xff
     self.setZeroIfZero(self.regY)
     self.setNegativeIfNegative(self.regY)
     self.getImpliedOperand()
@@ -1522,7 +1532,11 @@ class CpuR2A03 (threading.Thread):
   
   def DEX(self):
     print("DEX"),
+    oldNegativeBit = self.regX & 0x80
     self.regX -= 1
+    if (oldNegativeBit != (self.regX & 0x80)):
+      self.setOverflow()
+    self.regX &= 0xff
     self.setZeroIfZero(self.regX)
     self.setNegativeIfNegative(self.regX)
     self.getImpliedOperand()
@@ -1530,7 +1544,11 @@ class CpuR2A03 (threading.Thread):
   
   def INX(self):
     print("INX"),
+    oldNegativeBit = self.regX & 0x80
     self.regX += 1
+    if (oldNegativeBit != (self.regX & 0x80)):
+      self.setOverflow()
+    self.regX &= 0xff
     self.setZeroIfZero(self.regX)
     self.setNegativeIfNegative(self.regX)
     self.getImpliedOperand()
@@ -1583,7 +1601,11 @@ class CpuR2A03 (threading.Thread):
     self.clock += 7
   
   def INC(self, adress, operand):
+    oldNegativeBit = operand & 0x80
     operand += 1
+    if (oldNegativeBit != (operand & 0x80)):
+      self.setOverflow()
+    operand &= 0xff
     self.writeByte(adress, operand)
     self.setZeroIfZero(operand)
     self.setNegativeIfNegative(operand)

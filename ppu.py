@@ -1,13 +1,16 @@
 import threading
+import cpu
 
 class PpuR2C02 (threading.Thread):
-  #Constants
-  #xRes = 256 
-  #yRes = 240 #224 for NTSC
-  def __init__(self):
+  def __init__(self, memory, writeLock, readLock):
     threading.Thread.__init__(self)
-    self.spriteArray = []
+    self.sharedMemory = memory
+    self.writeLock = writeLock
+    self.readLock = readLock
 
   def run(self):
-  	print("Entering ppu thread")
-  	print("Exiting ppu thread")
+    self.readLock.acquire()
+    print("Entering ppu thread")
+    print("PPU: Ram at 0xc000:" + str(format(self.sharedMemory[0xc000], "02x")))
+    print("Exiting ppu thread")
+    self.readLock.release()
