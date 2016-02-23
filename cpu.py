@@ -259,7 +259,7 @@ class CpuR2A03:
     self.regX = 0 #Index register 1, 8 bit
     self.regY = 0 #Index register 2, 8 bit
     self.regS = 0xfd #Stack pointer, 8 bit, offset from $0100, wraps around on overflow
-    self.regP = 0 #Processor status flag bits, 8 bit
+    self.regP = 0x24 #Processor status flag bits, 8 bit
     self.PC = 0xc000 #Program counter, 16 bit (0xc000 start of prg-rom)
 
   def run(self):
@@ -546,6 +546,44 @@ class CpuR2A03:
     print("NOP"),
     self.getImpliedOperand()
 
+  def AND_IMM(self):
+    print("AND"),
+    self.AND(self.getImmediateOperand())
+
+  def AND_ZP(self):
+    print("AND"),
+    self.AND(self.getZeroPageOperand())
+
+  def AND_ZPX(self):
+    print("AND"),
+    self.AND(self.getZeroPageXOperand())
+
+  def AND_ABS(self):
+    print("AND"),
+    self.AND(self.getAbsoluteOperand())
+
+  def AND_ABSX(self):
+    print("AND"),
+    self.AND(self.getAbsoluteXOperand())
+
+  def AND_ABSY(self):
+    print("AND"),
+    self.AND(self.getAbsoluteYOperand())
+
+  def AND_INDX(self):
+    print("AND"),
+    self.AND(self.getIndirectXOperand())
+
+  def AND_INDY(self):
+    print("AND"),
+    self.AND(self.getIndirectYOperand())
+
+  def AND(self, operand):
+    self.clearAllFlags()
+    self.regA = operand & self.regA
+    self.setNegativeIfNegative(self.regA)
+    self.setZeroIfZero(self.regA)
+
   def ORA_IMM(self):
     print("ORA"),
     self.ORA(self.getImmediateOperand())
@@ -581,43 +619,6 @@ class CpuR2A03:
   def ORA(self, operand):
     self.clearAllFlags()
     self.regA = operand | self.regA
-    self.setNegativeIfNegative(self.regA)
-    self.setZeroIfZero(self.regA)
-
-  def AND_IMM(self):
-    print("AND"),
-    self.AND(self.getImmediateOperand())
-
-  def AND_ZP(self):
-    print("AND"),
-    self.AND(self.getZeroPageOperand())
-
-  def AND_ZPX(self):
-    print("AND"),
-    self.AND(self.getZeroPageXOperand())
-
-  def AND_ABS(self):
-    print("AND"),
-    self.AND(self.getAbsoluteOperand())
-
-  def AND_ABSX(self):
-    print("AND"),
-    self.AND(self.getAbsoluteXOperand())
-
-  def AND_ABSY(self):
-    print("AND"),
-    self.AND(self.getAbsoluteYOperand())
-
-  def AND_INDX(self):
-    print("AND"),
-    self.AND(self.getIndirectXOperand())
-
-  def AND_INDY(self):
-    print("AND"),
-    self.AND(self.getIndirectYOperand())
-
-  def AND(self, operand):
-    self.regA = operand & self.regA
     self.setNegativeIfNegative(self.regA)
     self.setZeroIfZero(self.regA)
 
@@ -849,13 +850,14 @@ class CpuR2A03:
     self.BIT(self.getAbsoluteOperand())
 
   def BIT(self, operand):
+    self.clearAllFlags()
     result = self.regA & operand
     self.setZeroIfZero(result)
-    self.setNegativeIfNegative(result)
-    if (result | 0x70) >> 7:
+    self.setNegativeIfNegative(operand)
+    if self.regA >= operand:
+      self.setCarry()
+    if (operand | 0x70) >> 7:
       self.setOverflow()
-    else:
-      self.clearOverflow()
 
   def ROL(self):
     print("ROL"),
@@ -910,8 +912,11 @@ class CpuR2A03:
   
   def PLA(self):
     print("PLA"),
+    self.clearAllFlags()
     self.getImpliedOperand()
     self.regA = self.popStack()
+    self.setZeroIfZero(self.regA)
+    self.setNegativeIfNegative(self.regA)
 
   def SEC(self):
     print("SEC"),
@@ -1209,7 +1214,8 @@ class CpuR2A03:
     self.clearAllFlags()
     if self.regA >= operand:
       self.setCarry()
-    self.setZeroIfZero(self.regA)
+    if (self.regA == operand):
+      self.setZero()
     self.setNegativeIfNegative(self.regA)
 
   def CPY_IMM(self):
@@ -1226,9 +1232,10 @@ class CpuR2A03:
 
   def CPY(self, operand):
     self.clearAllFlags()
-    if self.regY > operand:
+    if self.regY >= operand:
       self.setCarry()
-    self.setZeroIfZero(self.regY)
+    if (self.regY == operand):
+      self.setZero()
     self.setNegativeIfNegative(self.regY)
 
   def CPX_IMM(self):
@@ -1247,7 +1254,8 @@ class CpuR2A03:
     self.clearAllFlags()
     if self.regX > operand:
       self.setCarry()
-    self.setZeroIfZero(self.regX)
+    if (self.regX == operand):
+      self.setZero()
     self.setNegativeIfNegative(self.regX)
   
   def DEY(self):
