@@ -1,5 +1,8 @@
-class CpuR2A03:
-  def __init__(self):
+import threading
+
+class CpuR2A03 (threading.Thread):
+  def __init__(self, filename):
+    threading.Thread.__init__(self)
     #Clock
     #Clocked 1.789773Mhz for NTSC (System 21.47727Mhz / 12) and
     #1.773447Mhz for PAL (System 26.601171Mhz / 15)
@@ -19,81 +22,84 @@ class CpuR2A03:
     self.ram[12] = 0xab
     self.ram[13] = 0xcd
     self.ram[0xcdab] = 0xef
+
+    self.load(filename)
+    self.powerUp()
         
     # OPcodes
     self.ops = {
       '0x00' : self.BRK,
       '0x01' : self.ORA_INDX,
       '0x05' : self.ORA_ZP,
-      '0x06' : self.ASL,
+      '0x06' : self.ASL_ZP,
       '0x08' : self.PHP,
       '0x09' : self.ORA_IMM,
-      '0x0a' : self.ASL,
+      '0x0a' : self.ASL_ACC,
       '0x0d' : self.ORA_ABS,
-      '0x0e' : self.ASL,
+      '0x0e' : self.ASL_ABS,
       '0x10' : self.BPL,
       '0x11' : self.ORA_INDY,
       '0x15' : self.ORA_ZPX,
-      '0x16' : self.ASL,
+      '0x16' : self.ASL_ZPX,
       '0x18' : self.CLC,
       '0x19' : self.ORA_ABSY,
       '0x1d' : self.ORA_ABSX,
-      '0x1e' : self.ASL,
+      '0x1e' : self.ASL_ABSX,
       '0x20' : self.JSR,
       '0x21' : self.AND_INDX,
       '0x24' : self.BIT_ZP,
       '0x25' : self.AND_ZP,
-      '0x26' : self.ROL,
+      '0x26' : self.ROL_ZP,
       '0x28' : self.PLP,
       '0x29' : self.AND_IMM,
-      '0x2a' : self.ROL,
+      '0x2a' : self.ROL_ACC,
       '0x2c' : self.BIT_ABS,
       '0x2d' : self.AND_ABS,
-      '0x2e' : self.ROL,
+      '0x2e' : self.ROL_ABS,
       '0x30' : self.BMI,
       '0x31' : self.AND_INDY,
       '0x35' : self.AND_ZPX,
-      '0x36' : self.ROL,
+      '0x36' : self.ROL_ZPX,
       '0x38' : self.SEC,
       '0x39' : self.AND_ABSY,
       '0x3d' : self.AND_ABSX,
-      '0x3e' : self.ROL,
+      '0x3e' : self.ROL_ABSX,
       '0x40' : self.RTI,
       '0x41' : self.EOR_INDX,
       '0x45' : self.EOR_ZP,
-      '0x46' : self.LSR,
+      '0x46' : self.LSR_ZP,
       '0x48' : self.PHA,
       '0x49' : self.EOR_IMM,
-      '0x4a' : self.LSR,
+      '0x4a' : self.LSR_ACC,
       '0x4c' : self.JMP_ABS,
       '0x4d' : self.EOR_ABS,
-      '0x4e' : self.LSR,
+      '0x4e' : self.LSR_ABS,
       '0x50' : self.BVC,
       '0x51' : self.EOR_INDY,
       '0x55' : self.EOR_ZPX,
-      '0x56' : self.LSR,
+      '0x56' : self.LSR_ZPX,
       '0x58' : self.CLI,
       '0x59' : self.EOR_ABSY,
       '0x5d' : self.EOR_ABSX,
-      '0x5e' : self.LSR,
+      '0x5e' : self.LSR_ABSX,
       '0x60' : self.RTS,
       '0x61' : self.ADC_INDX,
       '0x65' : self.ADC_ZP,
-      '0x66' : self.ROR,
+      '0x66' : self.ROR_ZP,
       '0x68' : self.PLA,
       '0x69' : self.ADC_IMM,
-      '0x6a' : self.ROR,
+      '0x6a' : self.ROR_ACC,
       '0x6c' : self.JMP_IND,
       '0x6d' : self.ADC_ABS,
-      '0x6e' : self.ROR,
+      '0x6e' : self.ROR_ABS,
       '0x70' : self.BVS,
       '0x71' : self.ADC_INDY,
       '0x75' : self.ADC_ZPX,
-      '0x76' : self.ROR,
+      '0x76' : self.ROR_ZPX,
       '0x78' : self.SEI,
       '0x79' : self.ADC_ABSY,
       '0x7d' : self.ADC_ABSX,
-      '0x7e' : self.ROR,
+      '0x7e' : self.ROR_ABSX,
       '0x81' : self.STA_INDX,
       '0x84' : self.STY_ZP,
       '0x85' : self.STA_ZP,
@@ -180,8 +186,8 @@ class CpuR2A03:
   #----------------------------------------------------------------------
 
   def printRegisters(self):
-    print('A:%(ra)02x, X:%(rx)02x, Y:%(ry)02x, S:%(rs)02x, P:%(rp)02x' %\
-          {"ra":self.currentRegA, "rx":self.currentRegX, "ry":self.currentRegY, "rs":self.currentRegS, "rp":self.currentRegP})
+    print('A:%(ra)02x, X:%(rx)02x, Y:%(ry)02x, S:%(rs)02x, P:%(rp)02x, CLC:%(clc)04x' %\
+          {"ra":self.currentRegA, "rx":self.currentRegX, "ry":self.currentRegY, "rs":self.currentRegS, "rp":self.currentRegP,"clc":self.currentClock})
 
   def load(self, filename):
     print("Loading " + filename + " ...")
@@ -249,6 +255,7 @@ class CpuR2A03:
     
   def powerUp(self):
     #Start-up state
+    self.clock = 0
     self.ram[0x4015] = 0x00 #All sound disabled
     self.ram[0x4017] = 0x00 #Frame IRQ enabled
     for i in range(0, 16):
@@ -263,6 +270,7 @@ class CpuR2A03:
     self.PC = 0xc000 #Program counter, 16 bit (0xc000 start of prg-rom)
 
   def run(self):
+    print("Entering cpu thread")
     i = 0
     while (i < 256):
       #Fetch opcode, print
@@ -274,15 +282,19 @@ class CpuR2A03:
       self.currentRegY = self.regY
       self.currentRegS = self.regS
       self.currentRegP = self.regP
+      self.currentClock = self.clock
 
       #Execute instruction
       self.ops[format(self.currentOpcode, '#04x')]()
 
       #Print registers
       self.printRegisters()
-      #i += 1
+      i += 1
+
+    print("Exiting cpu thread")
 
   def reset(self):
+    self.clock = 0
     #A,X,Y not affected
     self.regS -= 0x03 #S decremented by 3
     self.setInterrupt() #Interrupt flag is set
@@ -461,56 +473,43 @@ class CpuR2A03:
   #(N)egative, O(V)erflow, (B)inary, (D)ecimal, (I)nterrupt, (Z)ero, (C)arry
 
   def clearAllFlags(self):
-    self.regP & 0x00
+    pass
+    #self.regP &= 0x00
 
-  def isNegativeFlagSet(self):
-    if (self.regP & 0x80):
-      return True
-    else:
-      return False
   def setNegative(self):
     self.regP |= 0x80
+  def getNegative(self):
+    return (self.regP & 0x80) >> 7
   def setNegativeIfNegative(self, operand):
-    if operand & 0x80: #MSB is set when zero in two-complement
-      self.setNegative()
-    else:
-      self.clearNegative()
+    self.regP |= (operand & 0x80) >> 7
   def clearNegative(self):
     self.regP &= 0x7f
-  def isOverflowFlagSet(self):
-    if (self.regP & 0x40):
-      return True
-    else:
-      return False
+
   def setOverflow(self):
     self.regP |= 0x40
+  def getOverflow(self):
+    return (self.regP & 0x40) >> 6
   def clearOverflow(self):
     self.regP &= 0xbf
-  def isBreakFlagSet(self):
-    if (self.regP & 0x10):
-      return True
-    else:
-      return False
+
   def setBreak(self):
     self.regP |= 0x10
+  def getBreak(self):
+    return (self.regP & 0x10) >> 4
   def clearBreak(self):
     self.regP &= 0xef
-  def isDecimalFlagSet(self):
-    if (self.regP & 0x08):
-      return True
-    else:
-      return False
+
   def setDecimal(self):
     self.regP |= 0x08
+  def getDecimal(self):
+    return (self.regP & 0x08) >> 3
   def clearDecimal(self):
     self.regP &= 0xf7
-  def isInterrupt(self):
-    if (self.regP & 0x40):
-      return True
-    else:
-      return False
+
   def setInterrupt(self):
     self.regP |= 0x04
+  def getDecimal(self):
+    return (self.regP & 0x04) >> 2
   def clearInterrupt(self):
     self.regP &= 0xfb
 
@@ -519,7 +518,7 @@ class CpuR2A03:
   def getZero(self):
     return (self.regP & 0x02) >> 1
   def setZeroIfZero(self, operand):
-    if operand == 0x00:
+    if (operand == 0x00):
       self.setZero()
     else:
       self.clearZero()
@@ -541,45 +540,54 @@ class CpuR2A03:
     print("BRK"),
     self.setBreak()
     self.getImpliedOperand()
+    self.clock += 7
 
   def NOP(self):
     print("NOP"),
     self.getImpliedOperand()
+    self.clock += 2
 
   def AND_IMM(self):
     print("AND"),
     self.AND(self.getImmediateOperand())
+    self.clock += 2
 
   def AND_ZP(self):
     print("AND"),
     self.AND(self.getZeroPageOperand())
+    self.clock += 3
 
   def AND_ZPX(self):
     print("AND"),
     self.AND(self.getZeroPageXOperand())
+    self.clock += 4
 
   def AND_ABS(self):
     print("AND"),
     self.AND(self.getAbsoluteOperand())
+    self.clock += 4
 
   def AND_ABSX(self):
     print("AND"),
     self.AND(self.getAbsoluteXOperand())
+    self.clock += 4
 
   def AND_ABSY(self):
     print("AND"),
     self.AND(self.getAbsoluteYOperand())
+    self.clock += 4
 
   def AND_INDX(self):
     print("AND"),
     self.AND(self.getIndirectXOperand())
+    self.clock += 6
 
   def AND_INDY(self):
     print("AND"),
-    self.AND(self.getIndirectYOperand())
+    self.AND(self.getIndirectYOperand())    
+    self.clock += 5
 
   def AND(self, operand):
-    self.clearAllFlags()
     self.regA = operand & self.regA
     self.setNegativeIfNegative(self.regA)
     self.setZeroIfZero(self.regA)
@@ -587,37 +595,44 @@ class CpuR2A03:
   def ORA_IMM(self):
     print("ORA"),
     self.ORA(self.getImmediateOperand())
+    self.clock += 2
 
   def ORA_ZP(self):
     print("ORA"),
     self.ORA(self.getZeroPageOperand())
+    self.clock += 3
 
   def ORA_ZPX(self):
     print("ORA"),
     self.ORA(self.getZeroPageXOperand())
+    self.clock += 4
 
   def ORA_ABS(self):
     print("ORA"),
     self.ORA(self.getAbsoluteOperand())
+    self.clock += 4
 
   def ORA_ABSX(self):
     print("ORA"),
     self.ORA(self.getAbsoluteXOperand())
+    self.clock += 4
 
   def ORA_ABSY(self):
     print("ORA"),
     self.ORA(self.getAbsoluteYOperand())
+    self.clock += 4
 
   def ORA_INDX(self):
     print("ORA"),
     self.ORA(self.getIndirectXOperand())
+    self.clock += 6
 
   def ORA_INDY(self):
     print("ORA"),
     self.ORA(self.getIndirectYOperand())
+    self.clock += 5
 
   def ORA(self, operand):
-    self.clearAllFlags()
     self.regA = operand | self.regA
     self.setNegativeIfNegative(self.regA)
     self.setZeroIfZero(self.regA)
@@ -625,37 +640,44 @@ class CpuR2A03:
   def EOR_IMM(self):
     print("EOR"),
     self.EOR(self.getImmediateOperand())
+    self.clock += 2
 
   def EOR_ZP(self):
     print("EOR"),
     self.EOR(self.getZeroPageOperand())
+    self.clock += 3
 
   def EOR_ZPX(self):
     print("EOR"),
     self.EOR(self.getZeroPageXOperand())
+    self.clock += 4
 
   def EOR_ABS(self):
     print("EOR"),
     self.EOR(self.getAbsoluteOperand())
+    self.clock += 4
 
   def EOR_ABSX(self):
     print("EOR"),
     self.EOR(self.getAbsoluteXOperand())
+    self.clock += 4
 
   def EOR_ABSY(self):
     print("EOR"),
     self.EOR(self.getAbsoluteYOperand())
+    self.clock += 4
 
   def EOR_INDX(self):
     print("EOR"),
     self.EOR(self.getIndirectXOperand())
+    self.clock += 6
 
   def EOR_INDY(self):
     print("EOR"),
     self.EOR(self.getIndirectYOperand())
+    self.clock += 5
 
   def EOR(self, operand):
-    self.clearAllFlags()
     self.regA = operand ^ self.regA
     self.setNegativeIfNegative(self.regA)
     self.setZeroIfZero(self.regA)
@@ -663,82 +685,106 @@ class CpuR2A03:
   def ADC_IMM(self):
     print("ADC"),
     self.ADC(self.getImmediateOperand())
+    self.clock += 2
   
   def ADC_ZP(self):
     print("ADC"),
     self.ADC(self.getZeroPageOperand())
+    self.clock += 3
   
   def ADC_ZPX(self):
     print("ADC"),
     self.ADC(self.getZeroPageXOperand)
+    self.clock += 4
   
   def ADC_ABS(self):
     print("ADC"),
     self.ADC(self.getAbsoluteOperand)
+    self.clock += 4
   
   def ADC_ABSX(self):
     print("ADC"),
     self.ADC(self.getAbsoluteXOperand)
+    self.clock += 4
   
   def ADC_ABSY(self):
     print("ADC"),
     self.ADC(self.getAbsoluteYOperand)
+    self.clock += 4
   
   def ADC_INDX(self):
     print("ADC"),
     self.ADC(self.getIndirectXOperand)
+    self.clock += 6
   
   def ADC_INDY(self):
     print("ADC"),
     self.ADC(self.getIndirectYOperand)
+    self.clock += 5
   
   def ADC(self, operand):
-    self.clearAllFlags()
-    if self.regA + operand + self.getCarry() > 0xff:
-      self.setOverflow()
+    #if self.regA + operand + self.getCarry() > 0xff:
+    #  self.setOverflow()
+    oldNegativeBit = self.regA & 0x80
+    if (operand & 0x80) >> 7: #Negative
+      operand = ~operand + 1 #Two complement
     self.regA += operand + self.getCarry()
+    if oldNegativeBit != (self.regA & 0x80):
+      self.setOverflow()
+      self.setCarry()
     self.setNegativeIfNegative(self.regA)
     self.setZeroIfZero(self.regA)
 
   def SBC_IMM(self):
     print("SBC"),
     self.SBC(self.getImmediateOperand())
+    self.clock += 2
 
   def SBC_ZP(self):
     print("SBC"),
     self.SBC(self.getZeroPageOperand())
+    self.clock += 3
 
   def SBC_ZPX(self):
     print("SBC"),
     self.SBC(self.getZeroPageXOperand())
+    self.clock += 4
 
   def SBC_ABS(self):
     print("SBC"),
     self.SBC(self.getAbsoluteOperand())
+    self.clock += 4
 
   def SBC_ABSX(self):
     print("SBC"),
     self.SBC(self.getAbsoluteXOperand())
+    self.clock += 4
 
   def SBC_ABSY(self):
     print("SBC"),
     self.SBC(self.getAbsoluteYOperand())
+    self.clock += 4
 
   def SBC_INDX(self):
     print("SBC"),
     self.SBC(self.getIndirectXOperand())
+    self.clock += 6
 
   def SBC_INDY(self):
     print("SBC"),
     self.SBC(self.getIndirectYOperand())
+    self.clock += 5
 
   def SBC(self, operand):
-    self.clearAllFlags()
-    self.setNegativeIfNegative(operand)
-    self.setZeroIfZero(operand)
-    if self.regA - operand - self.getCarry() > 0xff:
-      self.setOverflow()
+    oldNegativeBit = self.regA & 0x80
+    if (operand & 0x80) >> 7: #Negative
+      operand = ~operand + 1 #Two complement
     self.regA -= operand + self.getCarry()
+    if oldNegativeBit != (self.regA & 0x80):
+      self.setOverflow()
+      self.setCarry()
+    self.setNegativeIfNegative(self.regA)
+    self.setZeroIfZero(self.regA)
 
   #Hack implementation!
   def JMP_ABS(self):
@@ -747,10 +793,12 @@ class CpuR2A03:
     print("$" + format(adress, "04x") + "  "),
     self.PC += 3
     self.JMP(adress)
+    self.clock += 3
 
   def JMP_IND(self):
     print("JMP"),
     self.JMP(self.getIndirectOperand())
+    self.clock += 5
 
   def JMP(self, operand):
     self.PC = operand
@@ -764,6 +812,7 @@ class CpuR2A03:
     self.pushStack(self.PC >> 8)
     self.pushStack(self.PC & 0x00ff)
     self.PC = adress
+    self.clock += 6
 
   def RTS(self):
     print("RTS"),
@@ -771,229 +820,547 @@ class CpuR2A03:
     self.PC = self.popStack()
     self.PC += self.popStack() << 8
     self.getImpliedOperand()
+    self.clock += 6
  
   def RTI(self):
     print("RTI"),
     self.PC = self.popStack() << 8
     self.PC += self.popStack()
+    self.clock += 6
 
   def BMI(self):
     print("BMI"),
     result = self.getRelativeOperand()
-    if self.isNegativeFlagSet():
+    if self.getNegative() == 0x01:
       self.PC = result
+      self.clock += 3
     else:
       self.PC += 2
+      self.clock += 2
 
   def BVC(self):
     print("BVC"),
     result = self.getRelativeOperand()
-    if self.isOverflowFlagSet() == False:
+    if self.getOverflow() == 0x00:
       self.PC = result
+      self.clock += 3
     else:
       self.PC += 2
+      self.clock += 2
 
   def BCC(self):
     print("BCC"),
     result = self.getRelativeOperand()
     if self.getCarry() == 0x00:
       self.PC = result
+      self.clock += 3
     else:
       self.PC += 2
+      self.clock += 2
   
   def BVS(self):
     print("BVS"),
     result = self.getRelativeOperand()
-    if self.isOverflowFlagSet():
+    if self.getOverflow() == 0x01:
       self.PC = result
+      self.clock += 3
     else:
       self.PC += 2
+      self.clock += 2
 
   def BCS(self):
     print("BCS"),
     result = self.getRelativeOperand()
     if self.getCarry() == 0x01:
       self.PC = result
+      self.clock += 3
     else:
       self.PC += 2
+      self.clock += 2
 
   def BPL(self):
     print("BPL"),
     result = self.getRelativeOperand()
-    if self.isNegativeFlagSet() == False:
+    if self.getNegative() == 0x00:
       self.PC = result
+      self.clock += 3
     else:
       self.PC += 2
+      self.clock += 2
   
   def BEQ(self):
     print("BEQ"),
     adress = self.getRelativeOperand()
     if self.getZero() == 0x01:
       self.PC = adress
+      self.clock += 3
     else:
       self.PC += 2
+      self.clock += 2
   
   def BNE(self):
     print("BNE"),
     adress = self.getRelativeOperand()
     if self.getZero() == 0x00:
       self.PC = adress
+      self.clock += 3
     else:
       self.PC += 2
+      self.clock += 2
 
   def BIT_ZP(self):
     print("BIT"),
     self.BIT(self.getZeroPageOperand())
+    self.clock += 3
 
   def BIT_ABS(self):
     print("BIT"),
     self.BIT(self.getAbsoluteOperand())
+    self.clock += 4
 
   def BIT(self, operand):
-    self.clearAllFlags()
     result = self.regA & operand
     self.setZeroIfZero(result)
     self.setNegativeIfNegative(operand)
     if self.regA >= operand:
       self.setCarry()
-    if (operand | 0x70) >> 7:
+    if (operand & 0x70) >> 7:
       self.setOverflow()
 
-  def ROL(self):
+  def ROL_ACC(self):
     print("ROL"),
-    self.clearAllFlags()
-    self.getImpliedOperand()
-    tempCarry = self.getCarry()
-    if self.regA & 0x70 != 0x00: #MSB set
-      self.setCarry()
     self.regA <<= 1
-    self.regA += tempCarry
-
-  def LSR(self):
-    print("LSR"),
-    self.clearAllFlags()
-    self.getImpliedOperand()
-    if self.regA & 0x01 != 0x00: #LSB set
-      self.setCarry()
-    self.regA >>= 1
-
-  def ASL(self):
-    print("ASL"),
-    self.clearAllFlags()
-    self.getImpliedOperand()
-    if self.regA & 0x70 != 0x00: #MSB set
-      self.setCarry()
-    self.regA <<= 1
-  
-  def ROR(self):
-    print("ROR"),
-    self.clearAllFlags()
-    self.getImpliedOperand()
-    tempCarry = self.getCarry()
-    if self.regA & 0x01 != 0x00: #LSB set
-      self.setCarry()
-    self.regA >>= 1
-    self.regA += tempCarry << 8
-
-  def PHP(self):
-    print("PHP"),
-    self.getImpliedOperand()
-    self.pushStack(self.regP)
-
-  def PHA(self):
-    print("PHA"),
-    self.getImpliedOperand()
-    self.pushStack(self.regA)
-
-  def PLP(self):
-    print("PLP"),
-    self.getImpliedOperand()
-    self.regP = self.popStack()
-  
-  def PLA(self):
-    print("PLA"),
-    self.clearAllFlags()
-    self.getImpliedOperand()
-    self.regA = self.popStack()
-    self.setZeroIfZero(self.regA)
+    self.regA |= self.getCarry()
     self.setNegativeIfNegative(self.regA)
+    self.setZeroIfZero(self.regA)
+    self.getImpliedOperand()
+    self.clock += 2
+
+  def ROL_ZP(self):
+    print("ROL"),
+    self.ROL(self.getZeroPageAdress())
+    self.clock += 5
+
+  def ROL_ZPX(self):
+    print("ROL"),
+    self.ROL(self.getZeroPageXAdress())
+    self.clock += 6
+
+  def ROL_ABS(self):
+    print("ROL"),
+    self.ROL(self.getAbsoluteAdress())
+    self.clock += 6
+
+  def ROL_ABSX(self):
+    print("ROL"),
+    self.ROL(self.getAbsoluteXAdress())
+    self.clock += 7
+
+  def ROL(self, adress):
+    operand = readByte(adress)
+    operand <<= 1
+    operand |= self.getCarry()
+    self.writeByte(adress, operand)
+    self.setNegativeIfNegative(operand)
+    self.setZeroIfZero(operand)
+  
+  def ROR_ACC(self):
+    print("ROR"),
+    self.regA >>= 1
+    self.regA |= self.getCarry() << 7
+    self.setNegativeIfNegative(self.regA)
+    self.setZeroIfZero(self.regA)
+    self.getImpliedOperand()
+    self.clock += 2
+  
+  def ROR_ZP(self):
+    print("ROR"),
+    self.ROR(self.getZeroPageAdress())
+    self.clock += 5
+  
+  def ROR_ZPX(self):
+    print("ROR"),
+    self.ROR(self.getZeroPageXAdress())
+    self.clock += 6
+  
+  def ROR_ABS(self):
+    print("ROR"),
+    self.ROR(self.getAbsoluteAdress())
+    self.clock += 6
+  
+  def ROR_ABSX(self):
+    print("ROR"),
+    self.ROR(self.getAbsoluteXAdress())
+    self.clock += 7
+  
+  def ROR(self, adress):
+    operand = readByte(adress)
+    operand >>= 1
+    operand |= self.getCarry() << 7
+    self.writeByte(adress, operand)
+    self.setNegativeIfNegative(operand)
+    self.setZeroIfZero(operand)
+
+  def LSR_ACC(self):
+    print("LSR"),
+    self.regP |= (self.regA & 0x01)
+    self.regA >>= 1
+    self.setNegativeIfNegative(self.regA)
+    self.setZeroIfZero(self.regA)
+    self.getImpliedOperand()
+    self.clock += 2
+
+  def LSR_ZP(self):
+    print("LSR"),
+    adress = self.getZeroPageAdress()
+    self.LSR(adress)
+    print("$" + format(adress, "02x") + "    "),
+    self.clock += 5
+
+  def LSR_ZPX(self):
+    print("LSR"),
+    adress = self.getZeroPageXAdress()
+    self.LSR(adress)
+    print("$" + format(adress, "02x") + ",X  "),
+    self.clock += 6
+
+  def LSR_ABS(self):
+    print("LSR"),
+    adress = self.getAbsoluteAdress()
+    self.LSR(adress)
+    print("$" + format(adress, "04x") + "  "),
+    self.clock += 6
+
+  def LSR_ABSX(self):
+    print("LSR"),
+    adress = self.getAbsoluteXAdress()
+    print("$" + format(adress, "04x") + ",X"),
+    self.LSR(adress)
+    self.clock += 7
+
+  def LSR(self, adress):
+    operand = readByte(adress)
+    self.regP |= (operand & 0x01)
+    operand >>= 1
+    self.writeByte(adress, operand)
+    self.setNegativeIfNegative(operand)
+    self.setZeroIfZero(operand)
+
+  def ASL_ACC(self):
+    print("ASL"),    
+    self.regP |= ((self.regA & 0x80) >> 7)
+    self.regA <<= 1
+    self.setNegativeIfNegative(self.regA)
+    self.setZeroIfZero(self.regA)
+    self.clock += 2
+
+  def ASL_ZP(self):
+    print("ASL"),
+    adress = self.getZeroPageAdress()
+    self.ASL(adress)
+    print("$" + format(adress, "02x") + "    "),
+    self.clock += 5
+
+  def ASL_ZPX(self):
+    print("ASL"),
+    adress = self.getZeroPageXAdress()
+    self.ASL(adress)
+    print("$" + format(adress, "02x") + ",X  "),
+    self.clock += 6
+
+  def ASL_ABS(self):
+    print("ASL"),
+    adress = self.getAbsoluteAdress()
+    self.ASL(adress)
+    print("$" + format(adress, "04x") + "  "),
+    self.clock += 6
+
+  def ASL_ABSX(self):
+    print("ASL"),
+    adress = self.getAbsoluteXAdress()
+    self.ASL(adress)
+    print("$" + format(adress, "04x") + ",X"),
+    self.clock += 7
+
+  def ASL(self, adress):
+    operand = readByte(adress)
+    self.regP |= ((operand & 0x80) >> 7)
+    operand <<= 1
+    self.writeByte(adress, operand)
+    self.setNegativeIfNegative(operand)
+    self.setZeroIfZero(operand)
 
   def SEC(self):
     print("SEC"),
     self.getImpliedOperand()
     self.setCarry()
+    self.clock += 2
   
   def SEI(self):
     print("SEI"),
     self.getImpliedOperand()
     self.setInterrupt()
+    self.clock += 2
   
   def SED(self):  
     print("SED"),
     self.getImpliedOperand()
     self.setDecimal()
+    self.clock += 2
   
   def CLD(self):  
     print("CLD"),
     self.getImpliedOperand()
     self.clearDecimal()
+    self.clock += 2
   
   def CLV(self):
     print("CLV"),
     self.getImpliedOperand()
     self.clearOverflow()
+    self.clock += 2
   
   def CLC(self):
     print("CLC"),
     self.getImpliedOperand()
     self.clearCarry()
+    self.clock += 2
   
   def CLI(self):
     print("CLI"),
     self.getImpliedOperand()
     self.clearInterrupt()
+    self.clock += 2
+  
+  def TXA(self):
+    print("TXA"),
+    self.getImpliedOperand()
+    self.setNegativeIfNegative(self.regX)
+    self.setZeroIfZero(self.regX)
+    self.regA = self.regX
+    self.clock += 2
+  
+  def TYA(self):
+    print("TYA"),
+    self.getImpliedOperand()
+    self.setNegativeIfNegative(self.regY)
+    self.setZeroIfZero(self.regY)
+    self.regA = self.regY
+    self.clock += 2
+
+  def TAY(self):
+    print("TAY"),
+    self.getImpliedOperand()
+    self.setNegativeIfNegative(self.regA)
+    self.setZeroIfZero(self.regA)
+    self.regY = self.regA
+    self.clock += 2
+  
+  def TAX(self):
+    print("TAX"),
+    self.getImpliedOperand()
+    self.setNegativeIfNegative(self.regA)
+    self.setZeroIfZero(self.regA)
+    self.regX = self.regA
+    self.clock += 2
+  
+  def TSX(self):
+    print("TSX"),
+    self.getImpliedOperand()
+    self.setNegativeIfNegative(self.regS)
+    self.setZeroIfZero(self.regS)
+    self.regX = self.regS
+    self.clock += 2
+  
+  def TXS(self):
+    print("TXS"),
+    self.getImpliedOperand()
+    self.setNegativeIfNegative(self.regX)
+    self.setZeroIfZero(self.regX)
+    self.regS = self.regX
+    self.clock += 2
+
+  def PHP(self):
+    print("PHP"),
+    self.getImpliedOperand()
+    self.pushStack(self.regP)
+    self.clock += 3
+
+  def PHA(self):
+    print("PHA"),
+    self.getImpliedOperand()
+    self.pushStack(self.regA)
+    self.clock += 3
+
+  def PLP(self):
+    print("PLP"),
+    self.getImpliedOperand()
+    self.regP = self.popStack()
+    self.setZeroIfZero(self.regP)
+    self.setNegativeIfNegative(self.regP)
+    self.clock += 4
+  
+  def PLA(self):
+    print("PLA"),
+    self.getImpliedOperand()
+    self.regA = self.popStack()
+    self.setZeroIfZero(self.regA)
+    self.setNegativeIfNegative(self.regA)
+    self.clock += 4
+
+  def LDY_ZP(self):
+    print("LDY"),
+    self.LDY(self.getZeroPageOperand())
+    self.clock += 3
+  
+  def LDY_IMM(self):
+    print("LDY"),
+    self.LDY(self.getImmediateOperand())
+    self.clock += 2
+
+  def LDY_ABS(self):
+    print("LDY"),
+    self.LDY(self.getAbsoluteOperand())
+    self.clock += 4
+
+  def LDY_ZPX(self):
+    print("LDY"),
+    self.LDY(self.getZeroPageXOperand())
+    self.clock += 4
+
+  def LDY_ABSX(self):
+    print("LDY"),
+    self.LDY(self.getAbsoluteXOperand())
+    self.clock += 4
+
+  def LDY(self, operand):
+    self.setNegativeIfNegative(operand)
+    self.setZeroIfZero(operand)
+    self.regY = operand
+
+  def LDX_ZP(self):
+    print("LDX"),
+    self.LDX(self.getZeroPageOperand())
+    self.clock += 3
+
+  def LDX_IMM(self):
+    print("LDX"),
+    self.LDX(self.getImmediateOperand())
+    self.clock += 2
+
+  def LDX_ABS(self):
+    print("LDX"),
+    self.LDX(self.getAbsoluteOperand())
+    self.clock += 4
+
+  def LDX_ZPY(self):
+    print("LDX"),
+    self.LDX(self.getZeroPageYOperand())
+    self.clock += 4
+
+  def LDX_ABSY(self):
+    print("LDX"),
+    self.LDX(self.getAbsoluteYOperand())
+    self.clock += 4
+
+  def LDX(self, operand):
+    self.setNegativeIfNegative(operand)
+    self.setZeroIfZero(operand)
+    self.regX = operand
+
+  def LDA_INDX(self):
+    print("LDA"),
+    self.LDA(self.getIndirectXOperand())
+    self.clock += 6
+
+  def LDA_ZP(self):
+    print("LDA"),
+    self.LDA(self.getZeroPageOperand())
+    self.clock += 3
+
+  def LDA_IMM(self):
+    print("LDA"),
+    self.LDA(self.getImmediateOperand())
+    self.clock += 2
+
+  def LDA_ABS(self):
+    print("LDA"),
+    self.LDA(self.getAbsoluteOperand())
+    self.clock += 4
+
+  def LDA_INDY(self):
+    print("LDA"),
+    self.LDA(self.getIndirectYOperand())
+    self.clock += 5
+
+  def LDA_ZPX(self):
+    print("LDA"),
+    self.LDA(self.getZeroPageXOperand())
+    self.clock += 4
+
+  def LDA_ABSY(self):
+    print("LDA"),
+    self.LDA(self.getAbsoluteYOperand())
+    self.clock += 4
+
+  def LDA_ABSX(self):
+    print("LDA"),
+    self.LDA(self.getAbsoluteXOperand())
+    self.clock += 4
+
+  def LDA(self, operand):
+    self.setNegativeIfNegative(operand)
+    self.setZeroIfZero(operand)
+    self.regA = operand
 
   def STA_ZP(self):
     print("STA"),
     adress = self.getZeroPageAdress()
     print("$" + format(adress, "02x") + "    "),
     self.STA(adress)
+    self.clock += 3
 
   def STA_ZPX(self):
     print("STA"),
     adress = self.getZeroPageXAdress()
     print("$" + format(adress, "02x") + "    "),
     self.STA(adress)
+    self.clock += 4
 
   def STA_ABS(self):
     print("STA"),
     adress = self.getAbsoluteAdress()
     print("$" + format(adress, "04x") + "  "),
     self.STA(adress)
+    self.clock += 4
 
   def STA_ABSX(self):
     print("STA"),
     adress = self.getAbsoluteXAdress()
     print("$" + format(adress, "04x") + "  "),
     self.STA(adress)
+    self.clock += 5
 
   def STA_ABSY(self):
     print("STA"),
     adress = self.getAbsoluteYAdress()
     print("$" + format(adress, "04x") + "  "),
     self.STA(adress)
+    self.clock += 5
 
   def STA_INDX(self):
     print("STA"),
     adress = self.getIndirectXAdress()
     print("$" + format(adress, "04x") + "  "),
     self.STA(adress)
+    self.clock += 6
 
   def STA_INDY(self):
     print("STA"),
     adress = self.getIndirectYAdress()
     print("$" + format(adress, "04x") + "  "),
     self.STA(adress)
+    self.clock += 6
 
   def STA(self, adress):
     self.writeByte(adress, self.regA)
@@ -1003,18 +1370,21 @@ class CpuR2A03:
     adress = self.getZeroPageAdress()
     print("$" + format(adress, "02x") + "    "),
     self.STY(adress)
+    self.clock += 3
   
   def STY_ZPX(self):
     print("STY"),
     adress = self.getZeroPageXAdress()
     print("$" + format(adress, "02x") + "    "),
     self.STY(adress)
+    self.clock += 4
   
   def STY_ABS(self):
     print("STY"),
     adress = self.getAbsoluteAdress()
     print("$" + format(adress, "04x") + "  "),
     self.STY(adress)
+    self.clock += 4
   
   def STY(self, adress):
     self.writeByte(adress, self.regY)
@@ -1024,194 +1394,66 @@ class CpuR2A03:
     adress = self.getZeroPageAdress()
     print("$" + format(adress, "02x") + "    "),
     self.STX(adress)
+    self.clock += 3
   
   def STX_ZPY(self):
     print("STX"),
     adress = self.getZeroPageYAdress()
     print("$" + format(adress, "02x") + "    "),
     self.STX(adress)
+    self.clock += 4
   
   def STX_ABS(self):
     print("STX"),
     adress = self.getAbsoluteAdress()
     print("$" + format(adress, "04x") + "  "),
     self.STX(adress)
+    self.clock += 4
   
   def STX(self, adress):
     self.writeByte(adress, self.regX)
-  
-  def TXA(self):
-    print("TXA"),
-    self.clearAllFlags()
-    self.getImpliedOperand()
-    self.setNegativeIfNegative(self.regX)
-    self.setZeroIfZero(self.regX)
-    self.regA = self.regX
-  
-  def TYA(self):
-    print("TYA"),
-    self.clearAllFlags()
-    self.getImpliedOperand()
-    self.setNegativeIfNegative(self.regY)
-    self.setZeroIfZero(self.regY)
-    self.regA = self.regY
-  
-  def TSX(self):
-    print("TSX"),
-    self.clearAllFlags()
-    self.getImpliedOperand()
-    self.setNegativeIfNegative(self.regS)
-    self.setZeroIfZero(self.regS)
-    self.regX = self.regS
-  
-  def TXS(self):
-    print("TXS"),
-    self.clearAllFlags()
-    self.getImpliedOperand()
-    self.setNegativeIfNegative(self.regX)
-    self.setZeroIfZero(self.regX)
-    self.regS = self.regX
-
-  def TAY(self):
-    print("TAY"),
-    self.clearAllFlags()
-    self.getImpliedOperand()
-    self.setNegativeIfNegative(self.regA)
-    self.setZeroIfZero(self.regA)
-    self.regY = self.regA
-  
-  def TAX(self):
-    print("TAX"),
-    self.clearAllFlags()
-    self.getImpliedOperand()
-    self.setNegativeIfNegative(self.regA)
-    self.setZeroIfZero(self.regA)
-    self.regX = self.regA
-
-  def LDY_ZP(self):
-    print("LDY"),
-    self.LDY(self.getZeroPageOperand())
-  
-  def LDY_IMM(self):
-    print("LDY"),
-    self.LDY(self.getImmediateOperand())
-
-  def LDY_ABS(self):
-    print("LDY"),
-    self.LDY(self.getAbsoluteOperand())
-
-  def LDY_ZPX(self):
-    print("LDY"),
-    self.LDY(self.getZeroPageXOperand())
-
-  def LDY_ABSX(self):
-    print("LDY"),
-    self.LDY(self.getAbsoluteXOperand())
-
-  def LDY(self, operand):
-    self.clearAllFlags()
-    self.setNegativeIfNegative(operand)
-    self.setZeroIfZero(operand)
-    self.regY = operand
-
-  def LDX_ZP(self):
-    print("LDX"),
-    self.LDX(self.getZeroPageOperand())
-
-  def LDX_IMM(self):
-    print("LDX"),
-    self.LDX(self.getImmediateOperand())
-
-  def LDX_ABS(self):
-    print("LDX"),
-    self.LDX(self.getAbsoluteOperand())
-
-  def LDX_ZPY(self):
-    print("LDX"),
-    self.LDX(self.getZeroPageYOperand())
-
-  def LDX_ABSY(self):
-    print("LDX"),
-    self.LDX(self.getAbsoluteYOperand())
-
-  def LDX(self, operand):
-    self.clearAllFlags()
-    self.setNegativeIfNegative(operand)
-    self.setZeroIfZero(operand)
-    self.regX = operand
-
-  def LDA_INDX(self):
-    print("LDA"),
-    self.LDA(self.getIndirectXOperand())
-
-  def LDA_ZP(self):
-    print("LDA"),
-    self.LDA(self.getZeroPageOperand())
-
-  def LDA_IMM(self):
-    print("LDA"),
-    self.LDA(self.getImmediateOperand())
-
-  def LDA_ABS(self):
-    print("LDA"),
-    self.LDA(self.getAbsoluteOperand())
-
-  def LDA_INDY(self):
-    print("LDA"),
-    self.LDA(self.getIndirectYOperand())
-
-  def LDA_ZPX(self):
-    print("LDA"),
-    self.LDA(self.getZeroPageXOperand())
-
-  def LDA_ABSY(self):
-    print("LDA"),
-    self.LDA(self.getAbsoluteYOperand())
-
-  def LDA_ABSX(self):
-    print("LDA"),
-    self.LDA(self.getAbsoluteXOperand())
-
-  def LDA(self, operand):
-    self.clearAllFlags()
-    self.setNegativeIfNegative(operand)
-    self.setZeroIfZero(operand)
-    self.regA = operand
 
   def CMP_IMM(self):
     print("CMP"),
     self.CMP(self.getImmediateOperand())
+    self.clock += 2
   
   def CMP_ZP(self):
     print("CMP"),
     self.CMP(self.getZeroPageOperand())
+    self.clock += 3
   
   def CMP_ZPX(self):
     print("CMP"),
     self.CMP(self.getZeroPageXOperand())
+    self.clock += 4
   
   def CMP_ABS(self):
     print("CMP"),
     self.CMP(self.getAbsoluteOperand())
+    self.clock += 4
   
   def CMP_ABSX(self):
     print("CMP"),
     self.CMP(self.getAbsoluteXOperand())
+    self.clock += 4
   
   def CMP_ABSY(self):
     print("CMP"),
     self.CMP(self.getAbsoluteYOperand())
+    self.clock += 4
   
   def CMP_INDX(self):
     print("CMP"),
     self.CMP(self.getIndirectXOperand())
+    self.clock += 6
   
   def CMP_INDY(self):
     print("CMP"),
     self.CMP(self.getIndirectYOperand())
+    self.clock += 5
   
   def CMP(self, operand):
-    self.clearAllFlags()
     if self.regA >= operand:
       self.setCarry()
     if (self.regA == operand):
@@ -1221,17 +1463,19 @@ class CpuR2A03:
   def CPY_IMM(self):
     print("CPY"),
     self.CPY(self.getImmediateOperand())
+    self.clock += 2
 
   def CPY_ZP(self):
     print("CPY"),
     self.CPY(self.getZeroPageOperand())
+    self.clock += 3
 
   def CPY_ABS(self):
     print("CPY"),
     self.CPY(self.getAbsoluteOperand())
+    self.clock += 4
 
   def CPY(self, operand):
-    self.clearAllFlags()
     if self.regY >= operand:
       self.setCarry()
     if (self.regY == operand):
@@ -1241,17 +1485,19 @@ class CpuR2A03:
   def CPX_IMM(self):
     print("CPX"),
     self.CPX(self.getImmediateOperand())
+    self.clock += 2
 
   def CPX_ZP(self):
     print("CPX"),
     self.CPX(self.getZeroPageOperand())
+    self.clock += 3
 
   def CPX_ABS(self):
     print("CPX"),
     self.CPX(self.getAbsoluteOperand())
+    self.clock += 4
 
   def CPX(self, operand):
-    self.clearAllFlags()
     if self.regX > operand:
       self.setCarry()
     if (self.regX == operand):
@@ -1260,54 +1506,57 @@ class CpuR2A03:
   
   def DEY(self):
     print("DEY"),
-    self.clearAllFlags()
     self.regY -= 1
     self.setZeroIfZero(self.regY)
     self.setNegativeIfNegative(self.regY)
     self.getImpliedOperand()
+    self.clock += 2
   
   def INY(self):
     print("INY"),
-    self.clearAllFlags()
     self.regY += 1
     self.setZeroIfZero(self.regY)
     self.setNegativeIfNegative(self.regY)
     self.getImpliedOperand()
+    self.clock += 2
   
   def DEX(self):
     print("DEX"),
-    self.clearAllFlags()
     self.regX -= 1
     self.setZeroIfZero(self.regX)
     self.setNegativeIfNegative(self.regX)
     self.getImpliedOperand()
+    self.clock += 2
   
   def INX(self):
     print("INX"),
-    self.clearAllFlags()
     self.regX += 1
     self.setZeroIfZero(self.regX)
     self.setNegativeIfNegative(self.regX)
     self.getImpliedOperand()
+    self.clock += 2
 
   def DEC_ZP(self):
     print("DEC"),
     self.DEC(self.getZeroPageAdress(), self.getZeroPageOperand())
+    self.clock += 5
 
   def DEC_ZPX(self):
     print("DEC"),
     self.DEC(self.getZeroPageXAdress(), self.getZeroPageXOperand())
+    self.clock += 6
 
   def DEC_ABS(self):
     print("DEC"),
     self.DEC(self.getAbsoluteAdress(), self.getAbsoluteOperand())
+    self.clock += 6
 
   def DEC_ABSX(self):
     print("DEC"),
     self.DEC(self.getAbsoluteXAdress(), self.getAbsoluteXOperand())
+    self.clock += 7
 
   def DEC(self, adress, operand):
-    self.clearAllFlags()
     operand -= 1
     self.writeByte(adress, operand)
     self.setZeroIfZero(operand)
@@ -1316,21 +1565,24 @@ class CpuR2A03:
   def INC_ZP(self):
     print("INC"),
     self.INC(self.getZeroPageAdress(), self.getZeroPageOperand())
+    self.clock += 5
   
   def INC_ZPX(self):
     print("INC"),
     self.INC(self.getZeroPageXAdress(), self.getZeroPageXOperand())
+    self.clock += 6
   
   def INC_ABS(self):
     print("INC"),
     self.INC(self.getAbsoluteAdress(), self.getAbsoluteOperand())
+    self.clock += 6
   
   def INC_ABSX(self):
     print("INC"),
     self.INC(self.getAbsoluteXAdress(), self.getAbsoluteXOperand())
+    self.clock += 7
   
   def INC(self, adress, operand):
-    self.clearAllFlags()
     operand += 1
     self.writeByte(adress, operand)
     self.setZeroIfZero(operand)
