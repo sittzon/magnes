@@ -274,7 +274,7 @@ class CpuR2A03 (threading.Thread):
     self.regY = 0 #Index register 2, 8 bit
     self.regS = 0xfd #Stack pointer, 8 bit, offset from $0100, wraps around on overflow
     self.regP = 0x24 #Processor status flag bits, 8 bit
-    self.PC = 0xc000 #Program counter, 16 bit (0xc000 start of prg-rom)
+    self.PC = 0x8000 #Program counter, 16 bit (0x8000 start of prg-rom)
 
   def run(self):
     print("Entering cpu thread")
