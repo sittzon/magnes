@@ -307,7 +307,7 @@ class CpuR2A03 (threading.Thread):
     self.clock = 0
     #A,X,Y not affected
     self.regS -= 0x03 #S decremented by 3
-    self.setInterrupt() #Interrupt flag is set
+    self.setInterrupt() #ADC flag is set
     #Internal memory unchanged
     #APU mode in $4017 unchanged
     self.ram[0x4015] = 0x00 #All sound disabled
@@ -524,10 +524,10 @@ class CpuR2A03 (threading.Thread):
   def getZero(self):
     return (self.regP & 0x02) >> 1
   def setZeroIfZero(self, operand):
-    if (operand == 0x00):
-      self.setZero()
-    else:
+    if operand:
       self.clearZero()
+    else:
+      self.setZero()
   def clearZero(self):
     self.regP &= 0xfd
 
@@ -729,17 +729,21 @@ class CpuR2A03 (threading.Thread):
     self.clock += 5
   
   def ADC(self, operand):
-    #if self.regA + operand + self.getCarry() > 0xff:
-    #  self.setOverflow()
     oldNegativeBit = self.regA & 0x80
-    if (operand & 0x80) >> 7: #Negative
-      operand = ~operand + 1 #Two complement
+    #if (operand & 0x80) >> 7: #Negative
+    #  operand = ~operand + 1 #Two complement
     self.regA += operand + self.getCarry()
     if oldNegativeBit != (self.regA & 0x80):
       self.setOverflow()
+    else:
+      self.clearOverflow()
+    if self.regA > 0xff:
       self.setCarry()
+    else:
+      self.clearCarry()
     self.setNegativeIfNegative(self.regA)
     self.setZeroIfZero(self.regA)
+    self.regA = self.regA & 0xff
 
   def SBC_IMM(self):
     print("SBC"),
@@ -783,14 +787,18 @@ class CpuR2A03 (threading.Thread):
 
   def SBC(self, operand):
     oldNegativeBit = self.regA & 0x80
-    if (operand & 0x80) >> 7: #Negative
-      operand = ~operand + 1 #Two complement
     self.regA -= operand + self.getCarry()
     if oldNegativeBit != (self.regA & 0x80):
       self.setOverflow()
+    else:
+      self.clearOverflow()
+    if self.regA < 0x00:
       self.setCarry()
+    else:
+      self.clearCarry()
     self.setNegativeIfNegative(self.regA)
     self.setZeroIfZero(self.regA)
+    self.regA = self.regA & 0xff
 
   #Hack implementation!
   def JMP_ABS(self):
@@ -930,8 +938,10 @@ class CpuR2A03 (threading.Thread):
     self.setNegativeIfNegative(operand)
     if self.regA >= operand:
       self.setCarry()
-    if (operand & 0x70) >> 7:
+    if (operand & 0x40) >> 6:
       self.setOverflow()
+    else:
+      self.clearOverflow()
 
   def ROL_ACC(self):
     print("ROL"),
