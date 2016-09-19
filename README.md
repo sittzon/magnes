@@ -1,2 +1,2 @@
-# nesemu
-A NES emulator in python!
+# magnes
+A NES emulator, written in python.
