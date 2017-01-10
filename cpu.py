@@ -280,7 +280,7 @@ class CpuR2A03 (threading.Thread):
     print("Entering cpu thread")
     i = 0
     self.readLock.acquire()
-    while (i < 75):
+    while (i < 73):
       #Fetch opcode, print
       self.currentOpcode = self.ram[self.PC]
       print("%(pc)04x:%(op)02x" % {"pc":self.PC, "op":self.currentOpcode}),
@@ -492,8 +492,10 @@ class CpuR2A03 (threading.Thread):
   def clearNegative(self):
     self.regP &= 0x7f
   def setNegativeIfNegative(self, operand):
-    self.clearNegative()
-    self.regP |= (operand & 0x80)# >> 7
+    if (operand & 0x80):
+      self.setNegative()
+    else:
+      self.clearNegative()
 
   def setOverflow(self):
     self.regP |= 0x40
@@ -1216,8 +1218,6 @@ class CpuR2A03 (threading.Thread):
     print("PLP"),
     self.getImpliedOperand()
     self.regP = self.popStack()
-    self.setZeroIfZero(self.regP)
-    self.setNegativeIfNegative(self.regP)
     self.clock += 4
   
   def PLA(self):
