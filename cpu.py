@@ -191,7 +191,7 @@ class CpuR2A03 (threading.Thread):
   #----------------------------------------------------------------------
 
   def printRegisters(self):
-    print('A:%(ra)02x, X:%(rx)02x, Y:%(ry)02x, S:%(rs)02x, P:%(rp)02x, CLC:%(clc)04x' %\
+    print('A:%(ra)02x, X:%(rx)02x, Y:%(ry)02x, P:%(rp)02x, S:%(rs)02x, CLC:%(clc)04x' %\
           {"ra":self.currentRegA, "rx":self.currentRegX, "ry":self.currentRegY, "rs":self.currentRegS, "rp":self.currentRegP,"clc":self.currentClock})
 
   def load(self, filename):
@@ -280,7 +280,7 @@ class CpuR2A03 (threading.Thread):
     print("Entering cpu thread")
     i = 0
     self.readLock.acquire()
-    while (i < 256):
+    while (i < 75):
       #Fetch opcode, print
       self.currentOpcode = self.ram[self.PC]
       print("%(pc)04x:%(op)02x" % {"pc":self.PC, "op":self.currentOpcode}),
@@ -489,10 +489,11 @@ class CpuR2A03 (threading.Thread):
     self.regP |= 0x80
   def getNegative(self):
     return (self.regP & 0x80) >> 7
-  def setNegativeIfNegative(self, operand):
-    self.regP |= (operand & 0x80) >> 7
   def clearNegative(self):
     self.regP &= 0x7f
+  def setNegativeIfNegative(self, operand):
+    self.clearNegative()
+    self.regP |= (operand & 0x80)# >> 7
 
   def setOverflow(self):
     self.regP |= 0x40
@@ -937,9 +938,9 @@ class CpuR2A03 (threading.Thread):
 
   def BIT(self, operand):
     result = self.regA & operand
-    self.setZeroIfZero(result)
     self.setNegativeIfNegative(operand)
-    if self.regA >= operand:
+    self.setZeroIfZero(result)
+    if self.regA > operand:
       self.setCarry()
     if (operand & 0x40) >> 6:
       self.setOverflow()
