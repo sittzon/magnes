@@ -280,7 +280,7 @@ class CpuR2A03 (threading.Thread):
     print("Entering cpu thread")
     i = 0
     self.readLock.acquire()
-    while (i < 73):
+    while (i < 160):
       #Fetch opcode, print
       self.currentOpcode = self.ram[self.PC]
       print("%(pc)04x:%(op)02x" % {"pc":self.PC, "op":self.currentOpcode}),
@@ -1478,7 +1478,8 @@ class CpuR2A03 (threading.Thread):
       self.setCarry()
     if (self.regA == operand):
       self.setZero()
-    self.setNegativeIfNegative(self.regA)
+      self.clearNegative()
+    #self.setNegativeIfNegative(self.regA)
 
   def CPY_IMM(self):
     print("CPY"),
