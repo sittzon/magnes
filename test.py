@@ -2,6 +2,7 @@ from threading import Thread, Lock
 
 import cpu
 import ppu
+import sys
 
 class Main:
   def __init__(self, filename):
@@ -23,5 +24,9 @@ class Main:
 
     print("Exiting emulator")
 
-mainInstance = Main('tests/nestest.nes')
+
+if len(sys.argv) == 2:
+    mainInstance = Main(str(sys.argv[1]))
+else:
+    mainInstance = Main('tests/nestest.nes')
 mainInstance.start()

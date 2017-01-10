@@ -293,10 +293,13 @@ class CpuR2A03 (threading.Thread):
       self.currentClock = self.clock
 
       #Execute instruction
-      self.ops[format(self.currentOpcode, '#04x')]()
+      try:
+        self.ops[format(self.currentOpcode, '#04x')]()
+        #Print registers
+        self.printRegisters()
+      except KeyError:
+        print("Key ", format(self.currentOpcode, '#04x'), " not found")
 
-      #Print registers
-      self.printRegisters()
       i += 1
 
     self.readLock.release()
