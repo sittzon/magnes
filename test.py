@@ -22,7 +22,7 @@ class Main:
     self.cpu.join()
     self.ppu.join()
 
-    print("Exiting emulator")
+    #print("Exiting emulator")
 
 
 if len(sys.argv) == 2:

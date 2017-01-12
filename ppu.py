@@ -11,11 +11,16 @@ class PpuR2C02 (threading.Thread):
     self.ramSize = 64*1024 #10kB PPU internal RAM, 64kB adressable
     self.ram = [0]*self.ramSize
 
+    #256*240 pixels
+    #8*8 pixel tilemap -> tilemap[32][32]
+
+    #palette table
+
   def run(self):
     self.readLock.acquire()
-    print("Entering ppu thread")
-    print("PPU: Ram at 0xc000:" + str(format(self.sharedMemory[0xc000], "02x")))
-    print("Exiting ppu thread")
+    #print("Entering ppu thread")
+    #print("PPU: Ram at 0xc000:" + str(format(self.sharedMemory[0xc000], "02x")))
+    #print("Exiting ppu thread")
     self.readLock.release()
 
   def powerUp(self):
