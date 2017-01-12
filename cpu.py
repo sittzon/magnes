@@ -280,7 +280,7 @@ class CpuR2A03 (threading.Thread):
     #print("Entering cpu thread")
     i = 0
     self.readLock.acquire()
-    while (i < 300):
+    while (i < 1050):
       #Fetch opcode, print
       self.currentOpcode = self.ram[self.PC]
       print("%(pc)04X  %(op)02X" % {"pc":self.PC, "op":self.currentOpcode}),
@@ -340,7 +340,6 @@ class CpuR2A03 (threading.Thread):
       self.ram[adress + 0x0800] = value
       self.ram[adress + 0x1000] = value
       self.ram[adress + 0x1800] = value
-      #print("$" + str(format(adress, "02x"))),
     else:
       self.ram[adress] = value
 
@@ -372,6 +371,23 @@ class CpuR2A03 (threading.Thread):
     print(op + " $" + format(zpadress,"02X") + " ="),
     print(format(operand, "02X") + "                   "),
 
+  def printZPX(self, op, adress, operand):
+    print(op + " $" + format(adress, "02X") + ",X @ " + format(adress, "02X")),
+    print(format(operand, "02X") + "                   "),
+
+  def printZPY(self, op, adress, operand):
+    print(op + " $" + format(adress, "02X") + ",Y @ " + format(adress, "02X")),
+    print(format(operand, "02X") + "                   "),
+
+  def printAbsolute(self, op, adress, operand):
+    print(format(adress & 0x00ff, "02X") + " " + format(adress >> 8, "02X") + " "),
+    print(op + " $" + format(adress, "04X") + " ="),
+    print(format(operand, "02X") + "                 "),
+
+  def printABSX(self, op, adress, operand):
+    print(op + " $" + format(adress, "02X") + ",X @ " + format(adress, "02X")),
+    print(format(operand, "02X") + "                   "),
+
   #----------------------------------------------------------------------
   # ADRESSING MODES
   #----------------------------------------------------------------------
@@ -390,55 +406,35 @@ class CpuR2A03 (threading.Thread):
   def getZP(self):
     adressZeroPage = self.readByte(self.PC + 1)
     adress = self.zeroPageWrapping(adressZeroPage)
-    self.PC += 2
     operand = self.readByte(adress)
+    self.PC += 2
     return adress, operand
 
-  def getZeroPageXAdress(self):
+  def getZPX(self):
     adressZeroPage = self.readByte(self.readByte(self.PC +1)) + self.regX
     adress = self.zeroPageWrapping(adressZeroPage)
-    self.PC += 2
-    return adress
-
-  def getZeroPageXOperand(self):
-    adress = self.getZeroPageXAdress()
     operand = self.readByte(adress)
-    print("$" + format(adress, "02X") + ",X  "),
-    return operand
+    self.PC += 2
+    return adress, operand
 
-  def getZeroPageYAdress(self):
+  def getZPY(self):
     adressZeroPage = self.readByte(self.readByte(self.PC +1)) + self.regY
     adress = self.zeroPageWrapping(adressZeroPage)
+    operand = self.readByte(adress)
     self.PC += 2
-    return adress
+    return adress, operand
 
-  def getZeroPageYOperand(self):
-    adress = self.getZeroPageYAdress()
-    operand = self.readByte(adress)
-    print("$" + format(adress, "02X") + ",Y  "),
-    return operand
-
-  def getAbsoluteAdress(self):
+  def getABS(self):
     adress = self.readWord(self.PC + 1)
-    self.PC += 3
-    return adress
-
-  def getAbsoluteOperand(self):
-    adress = self.getAbsoluteAdress()
     operand = self.readByte(adress)
-    print("$" + format(adress, "04X") + "  "),
-    return operand
+    self.PC += 3
+    return adress, operand
 
-  def getAbsoluteXAdress(self):
+  def getABSX(self):
     adress = self.readWord(self.PC + 1) + self.regX
-    self.PC += 3
-    return adress
-
-  def getAbsoluteXOperand(self):
-    adress = self.getAbsoluteXAdress()
     operand = self.readByte(adress)
-    print("$" + format(adress, "04x") + ",X"),
-    return operand
+    self.PC += 3
+    return adress, operand
 
   def getAbsoluteYOperand(self):
     adress = self.readWord(self.PC + 1) + self.regY
@@ -460,7 +456,7 @@ class CpuR2A03 (threading.Thread):
     adress1 = self.readByte(self.PC + 1) + self.regX
     adress2 = self.readWord(adress1)
     operand = self.readByte(adress2)
-    print("($" + format(adress1, "02X") + ",X)"),
+    print("($" + format(adress1, "02X") + ",X"),
     self.PC += 2
     return operand
 
@@ -556,7 +552,6 @@ class CpuR2A03 (threading.Thread):
   #----------------------------------------------------------------------
 
   def BRK(self):
-    print("BRK"),
     self.setBreak()
     self.pushStack(self.PC >> 8)
     self.pushStack(self.PC & 0x00ff)
@@ -564,6 +559,7 @@ class CpuR2A03 (threading.Thread):
     self.PC = self.readWord(0xfffe)
     self.getImpliedOperand()
     self.clock += 7
+    self.printImpliedOp("BRK")
 
   def NOP(self):
     self.getImpliedOperand()
@@ -583,19 +579,22 @@ class CpuR2A03 (threading.Thread):
     self.printZP("AND", adress, operand)
 
   def AND_ZPX(self):
-    print("AND"),
-    self.AND(self.getZeroPageXOperand())
+    adress, operand = self.getZPX()
+    self.AND(operand)
     self.clock += 4
+    self.printZPX("AND", adress, operand)
 
   def AND_ABS(self):
-    print("AND"),
-    self.AND(self.getAbsoluteOperand())
+    adress, operand = self.getABS()
+    self.AND(operand)
     self.clock += 4
+    self.printAbsolute("AND", adress, operand)
 
   def AND_ABSX(self):
-    print("AND"),
-    self.AND(self.getAbsoluteXOperand())
+    adress, operand = self.getABSX()
+    self.AND(operand)
     self.clock += 4
+    self.printABSX("AND", adress, operand)
 
   def AND_ABSY(self):
     print("AND"),
@@ -630,19 +629,22 @@ class CpuR2A03 (threading.Thread):
     self.printZP("ORA", adress, operand)
 
   def ORA_ZPX(self):
-    print("ORA"),
-    self.ORA(self.getZeroPageXOperand())
+    adress, operand = self.getZPX()
+    self.ORA(operand)
     self.clock += 4
+    self.printZPX("ORA", adress, operand)
 
   def ORA_ABS(self):
-    print("ORA"),
-    self.ORA(self.getAbsoluteOperand())
+    adress, operand = self.getABS()
+    self.ORA(operand)
     self.clock += 4
+    self.printAbsolute("ORA", adress, operand)
 
   def ORA_ABSX(self):
-    print("ORA"),
-    self.ORA(self.getAbsoluteXOperand())
+    adress, operand = self.getABSX()
+    self.ORA(operand)
     self.clock += 4
+    self.printABSX("ORA", adress, operand)
 
   def ORA_ABSY(self):
     print("ORA"),
@@ -677,19 +679,22 @@ class CpuR2A03 (threading.Thread):
     self.printZP("EOR", adress, operand)
 
   def EOR_ZPX(self):
-    print("EOR"),
-    self.EOR(self.getZeroPageXOperand())
+    adress, operand = self.getZPX()
+    self.EOR(operand)
     self.clock += 4
+    self.printZPX("EOR", adress, operand)
 
   def EOR_ABS(self):
-    print("EOR"),
-    self.EOR(self.getAbsoluteOperand())
+    adress, operand = self.getABS()
+    self.EOR(operand)
     self.clock += 4
+    self.printAbsolute("EOR", adress, operand)
 
   def EOR_ABSX(self):
-    print("EOR"),
-    self.EOR(self.getAbsoluteXOperand())
+    adress, operand = self.getABSX()
+    self.EOR(operand)
     self.clock += 4
+    self.printABSX("EOR", adress, operand)
 
   def EOR_ABSY(self):
     print("EOR"),
@@ -724,19 +729,22 @@ class CpuR2A03 (threading.Thread):
     self.printZP("ADC", adress, operand)
   
   def ADC_ZPX(self):
-    print("ADC"),
-    self.ADC(self.getZeroPageXOperand())
+    adress, operand = self.getZPX()
+    self.ADC(operand)
     self.clock += 4
+    self.printZPX("ADC", adress, operand)
   
   def ADC_ABS(self):
-    print("ADC"),
-    self.ADC(self.getAbsoluteOperand())
+    adress, operand = self.getABS()
+    self.ADC(operand)
     self.clock += 4
+    self.printAbsolute("ADC", adress, operand)
   
   def ADC_ABSX(self):
-    print("ADC"),
-    self.ADC(self.getAbsoluteXOperand())
+    adress, operand = self.getABSX()
+    self.ADC(operand)
     self.clock += 4
+    self.printABSX("ADC", adress, operand)
   
   def ADC_ABSY(self):
     print("ADC"),
@@ -783,19 +791,22 @@ class CpuR2A03 (threading.Thread):
     self.printZP("SBC", adress, operand)
 
   def SBC_ZPX(self):
-    print("SBC"),
-    self.SBC(self.getZeroPageXOperand())
+    adress, operand = self.getZPX()
+    self.SBC(operand)
     self.clock += 4
+    self.printZPX("SBC", adress, operand)
 
   def SBC_ABS(self):
-    print("SBC"),
-    self.SBC(self.getAbsoluteOperand())
+    adress, operand = self.getABS()
+    self.SBC(operand)
     self.clock += 4
+    self.printAbsolute("SBC", adress, operand)
 
   def SBC_ABSX(self):
-    print("SBC"),
-    self.SBC(self.getAbsoluteXOperand())
+    adress, operand = self.getABSX()
+    self.SBC(operand)
     self.clock += 4
+    self.printABSX("SBC", adress, operand)
 
   def SBC_ABSY(self):
     print("SBC"),
@@ -862,8 +873,9 @@ class CpuR2A03 (threading.Thread):
     self.printImpliedOp("RTS")
  
   def RTI(self):
-    self.PC = self.popStack() << 8
-    self.PC += self.popStack()
+    self.regP = self.popStack()
+    self.PC = self.popStack()
+    self.PC += self.popStack() << 8
     self.clock += 6
     self.printImpliedOp("RTI")
 
@@ -954,9 +966,10 @@ class CpuR2A03 (threading.Thread):
     self.printZP("BIT", adress, operand)
 
   def BIT_ABS(self):
-    print("BIT"),
-    self.BIT(self.getAbsoluteOperand())
+    adress, operand = self.getABS()
+    self.BIT(operand)
     self.clock += 4
+    self.printAbsolute("BIT", adress, operand)
 
   def BIT(self, operand):
     result = self.regA & operand
@@ -970,13 +983,13 @@ class CpuR2A03 (threading.Thread):
       self.clearOverflow()
 
   def ROL_ACC(self):
-    print("ROL"),
     self.regA <<= 1
     self.regA |= self.getCarry()
     self.setNegativeIfNegative(self.regA)
     self.setZeroIfZero(self.regA)
     self.getImpliedOperand()
     self.clock += 2
+    self.printImpliedOp("ROL")
 
   def ROL_ZP(self):
     adress, operand = self.getZP()
@@ -985,19 +998,22 @@ class CpuR2A03 (threading.Thread):
     self.printZP("ROL", adress, operand)
 
   def ROL_ZPX(self):
-    print("ROL"),
-    self.ROL(self.getZeroPageXAdress())
+    adress, operand = self.getZPX()
+    self.ROL(adress)
     self.clock += 6
+    self.printZPX("ROL", adress, operand)
 
   def ROL_ABS(self):
-    print("ROL"),
-    self.ROL(self.getAbsoluteAdress())
+    adress, operand = self.getABS()
+    self.ROL(adress)
     self.clock += 6
+    self.printAbsolute("ROL", adress, operand)
 
   def ROL_ABSX(self):
-    print("ROL"),
-    self.ROL(self.getAbsoluteXAdress())
+    adress, operand = self.getABSX()
+    self.ROL(adress)
     self.clock += 7
+    self.printABSX("ROL", adress, operand)
 
   def ROL(self, adress):
     operand = readByte(adress)
@@ -1008,13 +1024,13 @@ class CpuR2A03 (threading.Thread):
     self.setZeroIfZero(operand)
   
   def ROR_ACC(self):
-    print("ROR"),
     self.regA >>= 1
     self.regA |= self.getCarry() << 7
     self.setNegativeIfNegative(self.regA)
     self.setZeroIfZero(self.regA)
     self.getImpliedOperand()
     self.clock += 2
+    self.printImpliedOp("ROR")
   
   def ROR_ZP(self):
     adress, operand = self.getZP()
@@ -1023,19 +1039,22 @@ class CpuR2A03 (threading.Thread):
     self.printZP("ROR", adress, operand)
   
   def ROR_ZPX(self):
-    print("ROR"),
-    self.ROR(self.getZeroPageXAdress())
+    adress, operand = self.getZPX()
+    self.ROR(adress)
     self.clock += 6
+    self.printZPX("ROR", adress, operand)
   
   def ROR_ABS(self):
-    print("ROR"),
-    self.ROR(self.getAbsoluteAdress())
+    adress, operand = self.getABS()
+    self.ROR(adress)
     self.clock += 6
+    self.printAbsolute("ROR", adress, operand)
   
   def ROR_ABSX(self):
-    print("ROR"),
-    self.ROR(self.getAbsoluteXAdress())
+    adress, operand = self.getABSX()
+    self.ROR(adress)
     self.clock += 7
+    self.printABSX("ROR", adress, operand)
   
   def ROR(self, adress):
     operand = readByte(adress)
@@ -1061,25 +1080,22 @@ class CpuR2A03 (threading.Thread):
     self.printZP("LSR", adress, operand)
 
   def LSR_ZPX(self):
-    print("LSR"),
-    adress = self.getZeroPageXAdress()
+    adress, operand = self.getZPX()
     self.LSR(adress)
-    print("$" + format(adress, "02x") + ",X  "),
     self.clock += 6
+    self.printZPX("LSR", adress, operand)
 
   def LSR_ABS(self):
-    print("LSR"),
-    adress = self.getAbsoluteAdress()
+    adress, operand = self.getABS()
     self.LSR(adress)
-    print("$" + format(adress, "04x") + "  "),
     self.clock += 6
+    self.printAbsolute("LSR", adress, operand)
 
   def LSR_ABSX(self):
-    print("LSR"),
-    adress = self.getAbsoluteXAdress()
-    print("$" + format(adress, "04x") + ",X"),
+    adress, operand = self.getABSX()
     self.LSR(adress)
     self.clock += 7
+    self.printABSX("LSR", adress, operand)
 
   def LSR(self, adress):
     operand = readByte(adress)
@@ -1090,12 +1106,14 @@ class CpuR2A03 (threading.Thread):
     self.setZeroIfZero(operand)
 
   def ASL_ACC(self):
-    print("ASL"),    
     self.regP |= ((self.regA & 0x80) >> 7)
     self.regA <<= 1
+    self.regA &= 0xff
     self.setNegativeIfNegative(self.regA)
     self.setZeroIfZero(self.regA)
     self.clock += 2
+    self.getImpliedOperand()
+    self.printImpliedOp("ASL")
 
   def ASL_ZP(self):
     adress, operand = self.getZP()
@@ -1104,25 +1122,22 @@ class CpuR2A03 (threading.Thread):
     self.printZP("ASL", adress, operand)
 
   def ASL_ZPX(self):
-    print("ASL"),
-    adress = self.getZeroPageXAdress()
+    adress, operand = self.getZPX()
     self.ASL(adress)
-    print("$" + format(adress, "02x") + ",X  "),
     self.clock += 6
+    self.printZPX("ASL", adress, operand)
 
   def ASL_ABS(self):
-    print("ASL"),
-    adress = self.getAbsoluteAdress()
+    adress, operand = self.getABS()
     self.ASL(adress)
-    print("$" + format(adress, "04x") + "  "),
     self.clock += 6
+    self.printAbsolute("ASL", adress, operand)
 
   def ASL_ABSX(self):
-    print("ASL"),
-    adress = self.getAbsoluteXAdress()
+    adress, operand = self.getABSX()
     self.ASL(adress)
-    print("$" + format(adress, "04x") + ",X"),
     self.clock += 7
+    self.printABSX("ASL", adress, operand)
 
   def ASL(self, adress):
     operand = readByte(adress)
@@ -1261,19 +1276,22 @@ class CpuR2A03 (threading.Thread):
     self.printImmOp("LDY", operand)
 
   def LDY_ABS(self):
-    print("LDY"),
-    self.LDY(self.getAbsoluteOperand())
+    adress, operand = self.getABS()
+    self.LDY(operand)
     self.clock += 4
+    self.printAbsolute("LDY", adress, operand)
 
   def LDY_ZPX(self):
-    print("LDY"),
-    self.LDY(self.getZeroPageXOperand())
+    adress, operand = self.getZPX()
+    self.LDY(operand)
     self.clock += 4
+    self.printZPX("LDY", adress, operand)
 
   def LDY_ABSX(self):
-    print("LDY"),
-    self.LDY(self.getAbsoluteXOperand())
+    adress, operand = self.getABSX()
+    self.LDY(operand)
     self.clock += 4
+    self.printABSX("LDY", adress, operand)
 
   def LDY(self, operand):
     self.setNegativeIfNegative(operand)
@@ -1293,14 +1311,16 @@ class CpuR2A03 (threading.Thread):
     self.printImmOp("LDX", operand)
 
   def LDX_ABS(self):
-    print("LDX"),
-    self.LDX(self.getAbsoluteOperand())
+    adress, operand = self.getABS()
+    self.LDX(operand)
     self.clock += 4
+    self.printAbsolute("LDX", adress, operand)
 
   def LDX_ZPY(self):
-    print("LDX"),
-    self.LDX(self.getZeroPageYOperand())
+    adress, operand = self.getZPY()
+    self.LDX(operand)
     self.clock += 4
+    self.printZPY("LDX", adress, operand)
 
   def LDX_ABSY(self):
     print("LDX"),
@@ -1330,9 +1350,10 @@ class CpuR2A03 (threading.Thread):
     self.printImmOp("LDA", operand)
 
   def LDA_ABS(self):
-    print("LDA"),
-    self.LDA(self.getAbsoluteOperand())
+    adress, operand = self.getABS()
+    self.LDA(operand)
     self.clock += 4
+    self.printAbsolute("LDA", adress, operand)
 
   def LDA_INDY(self):
     print("LDA"),
@@ -1340,9 +1361,10 @@ class CpuR2A03 (threading.Thread):
     self.clock += 5
 
   def LDA_ZPX(self):
-    print("LDA"),
-    self.LDA(self.getZeroPageXOperand())
+    adress, operand = self.getZPX()
+    self.LDA(operand)
     self.clock += 4
+    self.printZPX("LDA", adress, operand)
 
   def LDA_ABSY(self):
     print("LDA"),
@@ -1350,9 +1372,10 @@ class CpuR2A03 (threading.Thread):
     self.clock += 4
 
   def LDA_ABSX(self):
-    print("LDA"),
-    self.LDA(self.getAbsoluteXOperand())
+    adress, operand = self.getABSX()
+    self.LDA(operand)
     self.clock += 4
+    self.printABSX("LDA", adress, operand)
 
   def LDA(self, operand):
     self.setNegativeIfNegative(operand)
@@ -1366,26 +1389,22 @@ class CpuR2A03 (threading.Thread):
     self.printZP("STA", adress, operand)
 
   def STA_ZPX(self):
-    print("STA"),
-    adress = self.getZeroPageXAdress()
+    adress, operand = self.getZPX()
     self.STA(adress)
     self.clock += 4
-    print("$" + format(adress, "02X") + "    "),
+    self.printZPX("STA", adress, operand)
 
   def STA_ABS(self):
-    print("STA"),
-    adress = self.getAbsoluteAdress()
-    print("$" + format(adress, "04X") + " = "),
-    print(format(self.readByte(adress), "04X") + "               "),
+    adress, operand = self.getABS()
     self.STA(adress)
     self.clock += 4
+    self.printAbsolute("STA", adress, operand)
 
   def STA_ABSX(self):
-    print("STA"),
-    adress = self.getAbsoluteXAdress()
-    print("$" + format(adress, "04X") + "  "),
+    adress, operand = self.getABSX()
     self.STA(adress)
     self.clock += 5
+    self.printABSX("STA", adress, operand)
 
   def STA_ABSY(self):
     print("STA"),
@@ -1418,18 +1437,16 @@ class CpuR2A03 (threading.Thread):
     self.printZP("STY", adress, operand)
   
   def STY_ZPX(self):
-    print("STY"),
-    adress = self.getZeroPageXAdress()
-    print("$" + format(adress, "02x") + "    "),
+    adress, operand = self.getZPX()
     self.STY(adress)
     self.clock += 4
+    self.printZPX("STY", adress, operand)
   
   def STY_ABS(self):
-    print("STY"),
-    adress = self.getAbsoluteAdress()
-    print("$" + format(adress, "04X") + "  "),
+    adress, operand = self.getABS()
     self.STY(adress)
     self.clock += 4
+    self.printAbsolute("STY", adress, operand)
   
   def STY(self, adress):
     self.writeByte(adress, self.regY)
@@ -1441,18 +1458,16 @@ class CpuR2A03 (threading.Thread):
     self.printZP("STX", adress, operand)
   
   def STX_ZPY(self):
-    print("STX"),
-    adress = self.getZeroPageYAdress()
-    print("$" + format(adress, "02X") + "    "),
+    adress, operand = self.getZPY()
     self.STX(adress)
     self.clock += 4
+    self.printZPY("STX", adress, operand)
   
   def STX_ABS(self):
-    print("STX"),
-    adress = self.getAbsoluteAdress()
-    print("$" + format(adress, "04X") + "  "),
+    adress, operand = self.getABS()
     self.STX(adress)
     self.clock += 4
+    self.printAbsolute("STX", adress, operand)
   
   def STX(self, adress):
     self.writeByte(adress, self.regX)
@@ -1470,9 +1485,10 @@ class CpuR2A03 (threading.Thread):
     self.printZP("CMP", adress, operand)
   
   def CMP_ZPX(self):
-    print("CMP"),
-    self.CMP(self.getZeroPageXOperand())
+    adress, operand = self.getZPX()
+    self.CMP(operand)
     self.clock += 4
+    self.printZPX("CMP", adress, operand)
   
   def CMP_ABS(self):
     print("CMP"),
@@ -1480,9 +1496,10 @@ class CpuR2A03 (threading.Thread):
     self.clock += 4
   
   def CMP_ABSX(self):
-    print("CMP"),
-    self.CMP(self.getAbsoluteXOperand())
+    adress, operand = self.getABSX()
+    self.CMP(operand)
     self.clock += 4
+    self.printABSX("CMP", adress, operand)
   
   def CMP_ABSY(self):
     print("CMP"),
@@ -1543,9 +1560,10 @@ class CpuR2A03 (threading.Thread):
     self.printZP("LDA", adress, operand)
 
   def CPX_ABS(self):
-    print("CPX"),
-    self.CPX(self.getAbsoluteOperand())
+    adress, operand = self.getABS()
+    self.CPX(operand)
     self.clock += 4
+    self.printAbsolute("CPX", adress, operand)
 
   def CPX(self, operand):
     if self.regX > operand:
@@ -1560,7 +1578,7 @@ class CpuR2A03 (threading.Thread):
     self.setNegativeIfNegative(self.regY)
     self.getImpliedOperand()
     self.clock += 2
-    print("       DEY                            "),
+    self.printImpliedOp("DEY")
   
   def INY(self):
     oldNegativeBit = self.regY & 0x80
@@ -1572,7 +1590,7 @@ class CpuR2A03 (threading.Thread):
     self.setNegativeIfNegative(self.regY)
     self.getImpliedOperand()
     self.clock += 2
-    print("       INY                            "),
+    self.printImpliedOp("INY")
   
   def DEX(self):
     oldNegativeBit = self.regX & 0x80
@@ -1584,7 +1602,7 @@ class CpuR2A03 (threading.Thread):
     self.setNegativeIfNegative(self.regX)
     self.getImpliedOperand()
     self.clock += 2
-    print("       DEX                            "),
+    self.printImpliedOp("DEX")
   
   def INX(self):
     oldNegativeBit = self.regX & 0x80
@@ -1596,7 +1614,7 @@ class CpuR2A03 (threading.Thread):
     self.setNegativeIfNegative(self.regX)
     self.getImpliedOperand()
     self.clock += 2
-    print("       INX                            "),
+    self.printImpliedOp("INX")
 
   def DEC_ZP(self):
     adress, operand = self.getZP()
@@ -1605,19 +1623,22 @@ class CpuR2A03 (threading.Thread):
     self.clock += 5
 
   def DEC_ZPX(self):
-    print("DEC"),
-    self.DEC(self.getZeroPageXAdress(), self.getZeroPageXOperand())
+    adress, operand = self.getZPX()
+    self.DEC(adress, operand)
     self.clock += 6
+    self.printZPX("DEC", adress, operand)
 
   def DEC_ABS(self):
-    print("DEC"),
-    self.DEC(self.getAbsoluteAdress(), self.getAbsoluteOperand())
+    adress, operand = self.getABS()
+    self.DEC(adress, operand)
     self.clock += 6
+    self.printAbsolute("DEC", adress, operand)
 
   def DEC_ABSX(self):
-    print("DEC"),
-    self.DEC(self.getAbsoluteXAdress(), self.getAbsoluteXOperand())
+    adress, operand = self.getABSX()
+    self.DEC(adress, operand)
     self.clock += 7
+    self.printABSX("DEC", adress, operand)
 
   def DEC(self, adress, operand):
     operand -= 1
@@ -1627,24 +1648,27 @@ class CpuR2A03 (threading.Thread):
   
   def INC_ZP(self):
     adress, operand = self.getZP()
-    print("INC"),
     self.INC(adress, operand)
     self.clock += 5
+    self.printZP("INC", adress, operand)
   
   def INC_ZPX(self):
-    print("INC"),
-    self.INC(self.getZeroPageXAdress(), self.getZeroPageXOperand())
+    adress, operand = self.getZPX()
+    self.INC(adress, operand)
     self.clock += 6
+    self.printZPX("INC", adress, operand)
   
   def INC_ABS(self):
-    print("INC"),
-    self.INC(self.getAbsoluteAdress(), self.getAbsoluteOperand())
+    adress, operand = self.getABS()
+    self.INC(adress, operand)
     self.clock += 6
+    self.printAbsolute("INC", adress, operand)
   
   def INC_ABSX(self):
-    print("INC"),
-    self.INC(self.getAbsoluteXAdress(), self.getAbsoluteXOperand())
+    adress, operand = self.getABSX()
+    self.INC(adress, operand)
     self.clock += 7
+    self.printABSX("INC", adress, operand)
   
   def INC(self, adress, operand):
     oldNegativeBit = operand & 0x80
