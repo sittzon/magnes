@@ -391,6 +391,9 @@ class CpuR2A03 (threading.Thread):
   def printABSY(self, op, adress, operand):
     print(op + " $" + format(adress, "04X") + ",Y @ " + format(adress, "02X")),
 
+  def printIND(self, op, adress, operand):
+    print(op + " ($" + format(adress, "04x") + ")"),
+
   #----------------------------------------------------------------------
   # ADRESSING MODES
   #----------------------------------------------------------------------
@@ -445,13 +448,12 @@ class CpuR2A03 (threading.Thread):
     self.PC += 3
     return adress, operand
 
-  def getIndirectOperand(self):
+  def getIND(self):
     adress1 = self.readWord(self.PC + 1)
     adress2 = self.readWord(adress1)
     operand = self.readByte(adress2)
-    print("($" + format(adress1, "04x") + ")"),
     self.PC += 3
-    return operand
+    return adress1, operand
 
   #AKA Indexed Indirect or pre-indexed
   def getIndirectXOperand(self):
@@ -854,9 +856,10 @@ class CpuR2A03 (threading.Thread):
     self.printRelativeOp("JMP", adress)
 
   def JMP_IND(self):
-    print("JMP"),
-    self.JMP(self.getIndirectOperand())
+    adress, operand = self.getIND()
+    self.JMP(operand)
     self.clock += 5
+    self.printIND("JMP", adress, operand);
 
   def JMP(self, operand):
     self.PC = operand
@@ -992,6 +995,7 @@ class CpuR2A03 (threading.Thread):
   def ROL_ACC(self):
     self.regA <<= 1
     self.regA |= self.getCarry()
+    self.regA &= 0xff
     self.setNegativeIfNegative(self.regA)
     self.setZeroIfZero(self.regA)
     self.getImpliedOperand()
