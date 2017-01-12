@@ -280,7 +280,7 @@ class CpuR2A03 (threading.Thread):
     #print("Entering cpu thread")
     i = 0
     self.readLock.acquire()
-    while (i < 1200):
+    while (i < 200):
       #Fetch opcode, print
       self.currentOpcode = self.ram[self.PC]
       print("%(pc)04X  %(op)02X" % {"pc":self.PC, "op":self.currentOpcode}),
@@ -633,8 +633,8 @@ class CpuR2A03 (threading.Thread):
     self.printImmOp("ORA", operand)
 
   def ORA_ZP(self):
-    adress, operand = getZP()
-    self.ORA(soperand)
+    adress, operand = self.getZP()
+    self.ORA(operand)
     self.clock += 3
     self.printZP("ORA", adress, operand)
 
@@ -685,7 +685,7 @@ class CpuR2A03 (threading.Thread):
     self.printImmOp("EOR", operand)
 
   def EOR_ZP(self):
-    adress, operand = getZP()
+    adress, operand = self.getZP()
     self.EOR(operand)
     self.clock += 3
     self.printZP("EOR", adress, operand)
@@ -737,7 +737,7 @@ class CpuR2A03 (threading.Thread):
     self.printImmOp("ADC", operand)
   
   def ADC_ZP(self):
-    adress, operand = getZP()
+    adress, operand = self.getZP()
     self.ADC(operand)
     self.clock += 3
     self.printZP("ADC", adress, operand)
@@ -801,7 +801,7 @@ class CpuR2A03 (threading.Thread):
     self.printImmOp("SBC", operand)
 
   def SBC_ZP(self):
-    adress, operand = getZP()
+    adress, operand = self.getZP()
     self.SBC(operand)
     self.clock += 3
     self.printZP("SBC", adress, operand)
@@ -1036,7 +1036,7 @@ class CpuR2A03 (threading.Thread):
     self.printABSX("ROL", adress, operand)
 
   def ROL(self, adress):
-    operand = readByte(adress)
+    operand = self.readByte(adress)
     operand <<= 1
     operand |= self.getCarry()
     self.writeByte(adress, operand)
@@ -1077,7 +1077,7 @@ class CpuR2A03 (threading.Thread):
     self.printABSX("ROR", adress, operand)
   
   def ROR(self, adress):
-    operand = readByte(adress)
+    operand = self.readByte(adress)
     operand >>= 1
     operand |= self.getCarry() << 7
     self.writeByte(adress, operand)
@@ -1118,7 +1118,7 @@ class CpuR2A03 (threading.Thread):
     self.printABSX("LSR", adress, operand)
 
   def LSR(self, adress):
-    operand = readByte(adress)
+    operand = self.readByte(adress)
     self.regP |= (operand & 0x01)
     operand >>= 1
     self.writeByte(adress, operand)
@@ -1160,7 +1160,7 @@ class CpuR2A03 (threading.Thread):
     self.printABSX("ASL", adress, operand)
 
   def ASL(self, adress):
-    operand = readByte(adress)
+    operand = self.readByte(adress)
     self.regP |= ((operand & 0x80) >> 7)
     operand <<= 1
     self.writeByte(adress, operand)
