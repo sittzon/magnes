@@ -281,7 +281,7 @@ class CpuR2A03 (threading.Thread):
     #print("Entering cpu thread")
     i = 0
     self.readLock.acquire()
-    while (i < 500):
+    while (i < 600):
       #Fetch opcode, print
       self.currentOpcode = self.ram[self.PC]
       print("%(pc)04X  %(op)02X" % {"pc":self.PC, "op":self.currentOpcode}),
@@ -789,13 +789,13 @@ class CpuR2A03 (threading.Thread):
     adress1, adress2, adress3, operand = self.getINDY()
     self.ADC(operand)
     self.clock += 5
-    self.printINDY("AND", adress1, adress2, adress3, operand)
+    self.printINDY("ADC", adress1, adress2, adress3, operand)
   
   def ADC(self, operand):
     temp = self.regA + operand + self.getCarry()
     if operand & 0x80: #Negative
       operand = ~operand + 1 #Two complement
-    self.regA += operand + self.getCarry()
+    self.regA += operand + self.getCarry() #A + M + C -> A
     if -1 < temp < 256: #Inside unsigned range
       self.clearCarry()
     else:
@@ -854,17 +854,17 @@ class CpuR2A03 (threading.Thread):
     adress1, adress2, adress3, operand = self.getINDY()
     self.SBC(operand)
     self.clock += 5
-    self.printINDY("AND", adress1, adress2, adress3, operand)
+    self.printINDY("SBC", adress1, adress2, adress3, operand)
 
   def SBC(self, operand):
-    temp = self.regA + operand + self.getCarry()
+    #temp = self.regA - operand - self.getCarry()
     if operand & 0x80: #Negative
       operand = ~operand + 1 #Two complement
-    self.regA -= operand - self.getCarry()
-    if -1 < temp < 256: #Inside unsigned range
-      self.clearCarry()
-    else:
+    self.regA -= operand + (0x01 ^ self.getCarry()) #A - M - ~C -> A
+    if -1 < self.regA < 256: #Inside unsigned range
       self.setCarry()
+    else:
+      self.clearCarry()
     if -129 < self.regA < 128: #Inside two-complement range
       self.clearOverflow()
     else:
@@ -1400,7 +1400,7 @@ class CpuR2A03 (threading.Thread):
     adress1, adress2, adress3, operand = self.getINDY()
     self.LDA(operand)
     self.clock += 5
-    self.printINDY("AND", adress1, adress2, adress3, operand)
+    self.printINDY("LDA", adress1, adress2, adress3, operand)
 
   def LDA_ZPX(self):
     adress, operand = self.getZPX()
@@ -1465,7 +1465,7 @@ class CpuR2A03 (threading.Thread):
     adress1, adress2, adress3, operand = self.getINDY()
     self.STA(adress1)
     self.clock += 6
-    self.printINDY("AND", adress1, adress2, adress3, operand)
+    self.printINDY("STA", adress1, adress2, adress3, operand)
 
   def STA(self, adress):
     self.writeByte(adress, self.regA)
@@ -1558,7 +1558,7 @@ class CpuR2A03 (threading.Thread):
     adress1, adress2, adress3, operand = self.getINDY()
     self.CMP(operand)
     self.clock += 5
-    self.printINDY("AND", adress1, adress2, adress3, operand)
+    self.printINDY("CMP", adress1, adress2, adress3, operand)
   
   def CMP(self, operand):
     if self.regA >= operand:
