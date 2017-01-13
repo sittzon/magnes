@@ -362,9 +362,9 @@ class CpuR2A03 (threading.Thread):
     print(format(operand, "02X") + "    "),
     print(op + " #$" + format(operand, "02X") + "                       "),
 
-  def printRelativeOp(self, op, operand):
-    print(format(operand & 0x00ff, "02X") + " " + format(operand >> 8, "02X") + " "),
-    print(op + " $" + format(operand, "04X") + "                      "),
+  def printRelativeOp(self, op, adress, operand):
+    print(format(operand, "02X") + "    "),
+    print(op + " $" + format(adress, "04X") + "                      "),
 
   def printZP(self, op, zpadress, operand):
     print(format(zpadress,"02X") + "    "),
@@ -379,7 +379,7 @@ class CpuR2A03 (threading.Thread):
     print(op + " $" + format(adress, "02X") + ",Y @ " + format(adress, "02X")),
     print(format(operand, "02X") + "                   "),
 
-  def printAbsolute(self, op, adress, operand):
+  def printABS(self, op, adress, operand):
     print(format(adress & 0x00ff, "02X") + " " + format(adress >> 8, "02X") + " "),
     print(op + " $" + format(adress, "04X") + " ="),
     print(format(operand, "02X") + "                 "),
@@ -403,7 +403,11 @@ class CpuR2A03 (threading.Thread):
     print(format(adress1, "02X") + "    "),
     print(op + " ($" + format(adress1, "02X") + "),Y ="),
     print(format(adress2, "04X") + " @ " + format(adress2, "04X") + " ="),
-    print(format(operand, "02X") + " "),
+    print(format(operand, "02X") + " "),  
+
+  def printJMPJSR(self, op, adress, operand):
+    print(format(operand & 0x00ff, "02X") + " " + format(operand >> 8, "02X") + " "),
+    print(op + " $" + format(adress, "04X") + "                      "),
 
   #----------------------------------------------------------------------
   # ADRESSING MODES
@@ -487,10 +491,10 @@ class CpuR2A03 (threading.Thread):
     operand = self.readByte(self.PC + 1)
     if (operand & 0x80): #Negative adress
       operand = ~operand + 1 #Bitwise flip and add 1 -> two-complement
-      result = self.PC - operand + 2
+      adress = self.PC - operand + 2
     else:
-      result = self.PC + operand + 2
-    return result
+      adress = self.PC + operand + 2
+    return adress, operand
    	
   #----------------------------------------------------------------------
   # PROCESSOR STATUS FLAGS
@@ -565,11 +569,11 @@ class CpuR2A03 (threading.Thread):
   #----------------------------------------------------------------------
 
   def BRK(self):
-    self.setBreak()
     self.pushStack(self.PC >> 8)
     self.pushStack(self.PC & 0x00ff)
     self.pushStack(self.regP)
     self.PC = self.readWord(0xfffe)
+    self.setBreak()
     self.getImpliedOperand()
     self.clock += 7
     self.printImpliedOp("BRK")
@@ -601,7 +605,7 @@ class CpuR2A03 (threading.Thread):
     adress, operand = self.getABS()
     self.AND(operand)
     self.clock += 4
-    self.printAbsolute("AND", adress, operand)
+    self.printABS("AND", adress, operand)
 
   def AND_ABSX(self):
     adress, operand = self.getABSX()
@@ -654,7 +658,7 @@ class CpuR2A03 (threading.Thread):
     adress, operand = self.getABS()
     self.ORA(operand)
     self.clock += 4
-    self.printAbsolute("ORA", adress, operand)
+    self.printABS("ORA", adress, operand)
 
   def ORA_ABSX(self):
     adress, operand = self.getABSX()
@@ -707,7 +711,7 @@ class CpuR2A03 (threading.Thread):
     adress, operand = self.getABS()
     self.EOR(operand)
     self.clock += 4
-    self.printAbsolute("EOR", adress, operand)
+    self.printABS("EOR", adress, operand)
 
   def EOR_ABSX(self):
     adress, operand = self.getABSX()
@@ -760,7 +764,7 @@ class CpuR2A03 (threading.Thread):
     adress, operand = self.getABS()
     self.ADC(operand)
     self.clock += 4
-    self.printAbsolute("ADC", adress, operand)
+    self.printABS("ADC", adress, operand)
   
   def ADC_ABSX(self):
     adress, operand = self.getABSX()
@@ -787,20 +791,18 @@ class CpuR2A03 (threading.Thread):
     self.printINDY("AND", adress1, adress2, adress3, operand)
   
   def ADC(self, operand):
-    #oldNegativeBit = self.regA & 0x80
-    #if (operand & 0x80) >> 7: #Negative
-    #  operand = ~operand + 1 #Two complement
+    temp = self.regA + operand + self.getCarry()
+    if operand & 0x80: #Negative
+      operand = ~operand + 1 #Two complement
     self.regA += operand + self.getCarry()
-    if self.regA > 127 | self.regA < -128: #oldNegativeBit != (self.regA & 0x80):
-      self.setOverflow()
+    if -1 < temp < 256: #Inside unsigned range
+      self.clearCarry()
     else:
+      self.setCarry()
+    if -129 < self.regA < 128: #Inside two-complement range
       self.clearOverflow()
-    self.clearCarry()
-    self.regP |= (self.regA & 0x0100) >> 8
-    #if self.regA > 0xff:
-    #  self.setCarry()
-    #else:
-    #  self.clearCarry()
+    else:
+      self.setOverflow()
     self.setNegativeIfNegative(self.regA)
     self.setZeroIfZero(self.regA)
     self.regA &= 0xff
@@ -827,7 +829,7 @@ class CpuR2A03 (threading.Thread):
     adress, operand = self.getABS()
     self.SBC(operand)
     self.clock += 4
-    self.printAbsolute("SBC", adress, operand)
+    self.printABS("SBC", adress, operand)
 
   def SBC_ABSX(self):
     adress, operand = self.getABSX()
@@ -874,7 +876,7 @@ class CpuR2A03 (threading.Thread):
     self.PC += 3
     self.JMP(adress)
     self.clock += 3
-    self.printRelativeOp("JMP", adress)
+    self.printJMPJSR("JMP", adress, adress)
 
   def JMP_IND(self):
     adress, operand = self.getIND()
@@ -893,7 +895,7 @@ class CpuR2A03 (threading.Thread):
     self.pushStack(self.PC & 0x00ff)
     self.PC = adress
     self.clock += 6
-    self.printRelativeOp("JSR", adress)
+    self.printJMPJSR("JSR", adress, adress)
 
   def RTS(self):
     #Pop reverse order JSR
@@ -911,84 +913,84 @@ class CpuR2A03 (threading.Thread):
     self.printImpliedOp("RTI")
 
   def BMI(self):
-    adress = self.getRelativeOperand()
+    adress, operand = self.getRelativeOperand()
     if self.getNegative():
       self.PC = adress
       self.clock += 3
     else:
       self.PC += 2
       self.clock += 2
-    self.printRelativeOp("BMI", adress)
+    self.printRelativeOp("BMI", adress, operand)
 
   def BVC(self):
-    adress = self.getRelativeOperand()
+    adress, operand = self.getRelativeOperand()
     if self.getOverflow() == 0x00:
       self.PC = adress
       self.clock += 3
     else:
       self.PC += 2
       self.clock += 2
-    self.printRelativeOp("BVC", adress)
+    self.printRelativeOp("BVC", adress, operand)
 
   def BCC(self):
-    adress = self.getRelativeOperand()
+    adress, operand = self.getRelativeOperand()
     if self.getCarry() == 0x00:
       self.PC = adress
       self.clock += 3
     else:
       self.PC += 2
       self.clock += 2
-    self.printRelativeOp("BCC", adress)
+    self.printRelativeOp("BCC", adress, operand)
   
   def BVS(self):
-    adress = self.getRelativeOperand()
+    adress, operand = self.getRelativeOperand()
     if self.getOverflow():
       self.PC = adress
       self.clock += 3
     else:
       self.PC += 2
       self.clock += 2
-    self.printRelativeOp("BVS", adress)
+    self.printRelativeOp("BVS", adress, operand)
 
   def BCS(self):
-    adress = self.getRelativeOperand()
+    adress, operand = self.getRelativeOperand()
     if self.getCarry():
       self.PC = adress
       self.clock += 3
     else:
       self.PC += 2
       self.clock += 2
-    self.printRelativeOp("BCS", adress)
+    self.printRelativeOp("BCS", adress, operand)
 
   def BPL(self):
-    adress = self.getRelativeOperand()
+    adress, operand = self.getRelativeOperand()
     if self.getNegative() == 0x00:
       self.PC = adress
       self.clock += 3
     else:
       self.PC += 2
       self.clock += 2
-    self.printRelativeOp("BPL", adress)
+    self.printRelativeOp("BPL", adress, operand)
   
   def BEQ(self):
-    adress = self.getRelativeOperand()
+    adress, operand = self.getRelativeOperand()
     if self.getZero():
       self.PC = adress
       self.clock += 3
     else:
       self.PC += 2
       self.clock += 2
-    self.printRelativeOp("BCS", adress)
+    self.printRelativeOp("BEQ", adress, operand)
   
   def BNE(self):
-    adress = self.getRelativeOperand()
+    adress, operand = self.getRelativeOperand()
     if self.getZero() == 0x00:
       self.PC = adress
       self.clock += 3
     else:
       self.PC += 2
       self.clock += 2
-    self.printRelativeOp("BNE", adress)
+    self.printRelativeOp("BNE", adress, operand)
 
   def BIT_ZP(self):
     adress, operand = self.getZP()
@@ -1000,7 +1002,7 @@ class CpuR2A03 (threading.Thread):
     adress, operand = self.getABS()
     self.BIT(operand)
     self.clock += 4
-    self.printAbsolute("BIT", adress, operand)
+    self.printABS("BIT", adress, operand)
 
   def BIT(self, operand):
     result = self.regA & operand
@@ -1041,7 +1043,7 @@ class CpuR2A03 (threading.Thread):
     adress, operand = self.getABS()
     self.ROL(adress)
     self.clock += 6
-    self.printAbsolute("ROL", adress, operand)
+    self.printABS("ROL", adress, operand)
 
   def ROL_ABSX(self):
     adress, operand = self.getABSX()
@@ -1082,7 +1084,7 @@ class CpuR2A03 (threading.Thread):
     adress, operand = self.getABS()
     self.ROR(adress)
     self.clock += 6
-    self.printAbsolute("ROR", adress, operand)
+    self.printABS("ROR", adress, operand)
   
   def ROR_ABSX(self):
     adress, operand = self.getABSX()
@@ -1123,7 +1125,7 @@ class CpuR2A03 (threading.Thread):
     adress, operand = self.getABS()
     self.LSR(adress)
     self.clock += 6
-    self.printAbsolute("LSR", adress, operand)
+    self.printABS("LSR", adress, operand)
 
   def LSR_ABSX(self):
     adress, operand = self.getABSX()
@@ -1165,7 +1167,7 @@ class CpuR2A03 (threading.Thread):
     adress, operand = self.getABS()
     self.ASL(adress)
     self.clock += 6
-    self.printAbsolute("ASL", adress, operand)
+    self.printABS("ASL", adress, operand)
 
   def ASL_ABSX(self):
     adress, operand = self.getABSX()
@@ -1313,7 +1315,7 @@ class CpuR2A03 (threading.Thread):
     adress, operand = self.getABS()
     self.LDY(operand)
     self.clock += 4
-    self.printAbsolute("LDY", adress, operand)
+    self.printABS("LDY", adress, operand)
 
   def LDY_ZPX(self):
     adress, operand = self.getZPX()
@@ -1348,7 +1350,7 @@ class CpuR2A03 (threading.Thread):
     adress, operand = self.getABS()
     self.LDX(operand)
     self.clock += 4
-    self.printAbsolute("LDX", adress, operand)
+    self.printABS("LDX", adress, operand)
 
   def LDX_ZPY(self):
     adress, operand = self.getZPY()
@@ -1389,7 +1391,7 @@ class CpuR2A03 (threading.Thread):
     adress, operand = self.getABS()
     self.LDA(operand)
     self.clock += 4
-    self.printAbsolute("LDA", adress, operand)
+    self.printABS("LDA", adress, operand)
 
   def LDA_INDY(self):
     adress1, adress2, adress3, operand = self.getINDY()
@@ -1436,7 +1438,7 @@ class CpuR2A03 (threading.Thread):
     adress, operand = self.getABS()
     self.STA(adress)
     self.clock += 4
-    self.printAbsolute("STA", adress, operand)
+    self.printABS("STA", adress, operand)
 
   def STA_ABSX(self):
     adress, operand = self.getABSX()
@@ -1481,7 +1483,7 @@ class CpuR2A03 (threading.Thread):
     adress, operand = self.getABS()
     self.STY(adress)
     self.clock += 4
-    self.printAbsolute("STY", adress, operand)
+    self.printABS("STY", adress, operand)
   
   def STY(self, adress):
     self.writeByte(adress, self.regY)
@@ -1502,7 +1504,7 @@ class CpuR2A03 (threading.Thread):
     adress, operand = self.getABS()
     self.STX(adress)
     self.clock += 4
-    self.printAbsolute("STX", adress, operand)
+    self.printABS("STX", adress, operand)
   
   def STX(self, adress):
     self.writeByte(adress, self.regX)
@@ -1529,7 +1531,7 @@ class CpuR2A03 (threading.Thread):
     adress, operand = self.getABS()
     self.CMP(operand)
     self.clock += 4
-    self.printAbsolute("CMP", adress, operand)
+    self.printABS("CMP", adress, operand)
   
   def CMP_ABSX(self):
     adress, operand = self.getABSX()
@@ -1558,8 +1560,11 @@ class CpuR2A03 (threading.Thread):
   def CMP(self, operand):
     if self.regA >= operand:
       self.setCarry()
-    if (self.regA == operand):
-      self.setZero()
+    else:
+      self.clearCarry()
+    #if self.regA == operand:
+    #  self.setZero()
+    self.setZeroIfZero(self.regA - operand)
     self.setNegativeIfNegative(self.regA - operand)
 
   def CPY_IMM(self):
@@ -1578,7 +1583,7 @@ class CpuR2A03 (threading.Thread):
     adress, operand = self.getABS()
     self.CPY(operand)
     self.clock += 4
-    self.printAbsolute("CPY", adress, operand)
+    self.printABS("CPY", adress, operand)
 
   def CPY(self, operand):
     if self.regY >= operand:
@@ -1603,7 +1608,7 @@ class CpuR2A03 (threading.Thread):
     adress, operand = self.getABS()
     self.CPX(operand)
     self.clock += 4
-    self.printAbsolute("CPX", adress, operand)
+    self.printABS("CPX", adress, operand)
 
   def CPX(self, operand):
     if self.regX > operand:
@@ -1672,7 +1677,7 @@ class CpuR2A03 (threading.Thread):
     adress, operand = self.getABS()
     self.DEC(adress, operand)
     self.clock += 6
-    self.printAbsolute("DEC", adress, operand)
+    self.printABS("DEC", adress, operand)
 
   def DEC_ABSX(self):
     adress, operand = self.getABSX()
@@ -1702,7 +1707,7 @@ class CpuR2A03 (threading.Thread):
     adress, operand = self.getABS()
     self.INC(adress, operand)
     self.clock += 6
-    self.printAbsolute("INC", adress, operand)
+    self.printABS("INC", adress, operand)
   
   def INC_ABSX(self):
     adress, operand = self.getABSX()
