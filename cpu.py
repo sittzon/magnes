@@ -778,21 +778,23 @@ class CpuR2A03 (threading.Thread):
     self.clock += 5
   
   def ADC(self, operand):
-    oldNegativeBit = self.regA & 0x80
+    #oldNegativeBit = self.regA & 0x80
     #if (operand & 0x80) >> 7: #Negative
     #  operand = ~operand + 1 #Two complement
     self.regA += operand + self.getCarry()
-    if oldNegativeBit != (self.regA & 0x80):
+    if self.regA > 127 | self.regA < -128: #oldNegativeBit != (self.regA & 0x80):
       self.setOverflow()
     else:
       self.clearOverflow()
-    if self.regA > 0xff:
-      self.setCarry()
-    else:
-      self.clearCarry()
+    self.clearCarry()
+    self.regP |= (self.regA & 0x0100) >> 8
+    #if self.regA > 0xff:
+    #  self.setCarry()
+    #else:
+    #  self.clearCarry()
     self.setNegativeIfNegative(self.regA)
     self.setZeroIfZero(self.regA)
-    self.regA = self.regA & 0xff
+    self.regA &= 0xff
 
   def SBC_IMM(self):
     operand = self.getImmediateOperand()
@@ -996,10 +998,12 @@ class CpuR2A03 (threading.Thread):
     self.setZeroIfZero(result)
     if self.regA > operand:
       self.setCarry()
-    if (operand & 0x40) >> 6:
-      self.setOverflow()
-    else:
-      self.clearOverflow()
+    self.clearOverflow()
+    self.regP |= operand & 0x40
+    #if (operand & 0x40) >> 6:
+    #  self.setOverflow()
+    #else:
+    #  self.clearOverflow()
 
   def ROL_ACC(self):
     self.regA <<= 1
