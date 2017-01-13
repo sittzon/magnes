@@ -394,10 +394,16 @@ class CpuR2A03 (threading.Thread):
   def printIND(self, op, adress, operand):
     print(op + " ($" + format(adress, "04X") + ")"),
 
-  def printINDX(self, op, adress, adress2, operand):
-    print(format(adress, "02X") + "    "),
-    print(op + " ($" + format(adress, "02X") + ",X) @ " + format(adress, "02X") + " ="),
+  def printINDX(self, op, adress1, adress2, operand):
+    print(format(adress1, "02X") + "    "),
+    print(op + " ($" + format(adress1, "02X") + ",X) @ " + format(adress1, "02X") + " ="),
     print(format(adress2, "04X") + " = " + format(operand, "02X") + "   "),
+
+  def printINDY(self, op, adress1, adress2, adress3, operand):
+    print(format(adress1, "02X") + "    "),
+    print(op + " ($" + format(adress1, "02X") + "),Y ="),
+    print(format(adress2, "04X") + " @ " + format(adress2, "04X") + " ="),
+    print(format(operand, "02X") + " "),
 
   #----------------------------------------------------------------------
   # ADRESSING MODES
@@ -469,14 +475,13 @@ class CpuR2A03 (threading.Thread):
     return adress1, adress2, operand
 
   #AKA Indirect Indexed or post-indexed
-  def getIndirectYOperand(self):
+  def getINDY(self):
     adress1 = self.readByte(self.PC + 1)
     adress2 = self.readWord(adress1)
     adress3 = adress2 + self.regY
     operand = self.readByte(adress3)
-    print("($" + format(adress1, "02X") + "),Y"),
     self.PC += 2
-    return operand
+    return adress1, adress2, adress3, operand
 
   def getRelativeOperand(self):
     operand = self.readByte(self.PC + 1)
@@ -617,9 +622,10 @@ class CpuR2A03 (threading.Thread):
     self.printINDX("AND", adress, adress2, operand)
 
   def AND_INDY(self):
-    print("AND"),
-    self.AND(self.getIndirectYOperand())    
+    adress1, adress2, adress3, operand = self.getINDY()
+    self.AND(operand)
     self.clock += 5
+    self.printINDY("AND", adress1, adress2, adress3, operand)
 
   def AND(self, operand):
     self.regA = operand & self.regA
@@ -669,9 +675,10 @@ class CpuR2A03 (threading.Thread):
     self.printINDX("ORA", adress, adress2, operand)
 
   def ORA_INDY(self):
-    print("ORA"),
-    self.ORA(self.getIndirectYOperand())
+    adress1, adress2, adress3, operand = self.getINDY()
+    self.ORA(operand)
     self.clock += 5
+    self.printINDY("AND", adress1, adress2, adress3, operand)
 
   def ORA(self, operand):
     self.regA = operand | self.regA
@@ -721,9 +728,10 @@ class CpuR2A03 (threading.Thread):
     self.printINDX("EOR", adress, adress2, operand)
 
   def EOR_INDY(self):
-    print("EOR"),
-    self.EOR(self.getIndirectYOperand())
+    adress1, adress2, adress3, operand = self.getINDY()
+    self.EOR(operand)
     self.clock += 5
+    self.printINDY("AND", adress1, adress2, adress3, operand)
 
   def EOR(self, operand):
     self.regA = operand ^ self.regA
@@ -773,9 +781,10 @@ class CpuR2A03 (threading.Thread):
     self.printINDX("ADC", adress, adress2, operand)
   
   def ADC_INDY(self):
-    print("ADC"),
-    self.ADC(self.getIndirectYOperand())
+    adress1, adress2, adress3, operand = self.getINDY()
+    self.ADC(operand)
     self.clock += 5
+    self.printINDY("AND", adress1, adress2, adress3, operand)
   
   def ADC(self, operand):
     #oldNegativeBit = self.regA & 0x80
@@ -839,9 +848,10 @@ class CpuR2A03 (threading.Thread):
     self.printINDX("SBC", adress, adress2, operand)
 
   def SBC_INDY(self):
-    print("SBC"),
-    self.SBC(self.getIndirectYOperand())
+    adress1, adress2, adress3, operand = self.getINDY()
+    self.SBC(operand)
     self.clock += 5
+    self.printINDY("AND", adress1, adress2, adress3, operand)
 
   def SBC(self, operand):
     oldNegativeBit = self.regA & 0x80
@@ -1382,9 +1392,10 @@ class CpuR2A03 (threading.Thread):
     self.printAbsolute("LDA", adress, operand)
 
   def LDA_INDY(self):
-    print("LDA"),
-    self.LDA(self.getIndirectYOperand())
+    adress1, adress2, adress3, operand = self.getINDY()
+    self.LDA(operand)
     self.clock += 5
+    self.printINDY("AND", adress1, adress2, adress3, operand)
 
   def LDA_ZPX(self):
     adress, operand = self.getZPX()
@@ -1446,11 +1457,10 @@ class CpuR2A03 (threading.Thread):
     self.printINDX("STA", adress, adress2, operand)
 
   def STA_INDY(self):
-    print("STA"),
-    adress = self.getIndirectYAdress()
-    print("$" + format(adress, "04X") + "  "),
-    self.STA(adress)
+    adress1, adress2, adress3, operand = self.getINDY()
+    self.STA(adress1)
     self.clock += 6
+    self.printINDY("AND", adress1, adress2, adress3, operand)
 
   def STA(self, adress):
     self.writeByte(adress, self.regA)
@@ -1516,9 +1526,10 @@ class CpuR2A03 (threading.Thread):
     self.printZPX("CMP", adress, operand)
   
   def CMP_ABS(self):
-    print("CMP"),
-    self.CMP(self.getAbsoluteOperand())
+    adress, operand = self.getABS()
+    self.CMP(operand)
     self.clock += 4
+    self.printAbsolute("CMP", adress, operand)
   
   def CMP_ABSX(self):
     adress, operand = self.getABSX()
@@ -1539,9 +1550,10 @@ class CpuR2A03 (threading.Thread):
     self.printINDX("CMP", adress, adress2, operand)
   
   def CMP_INDY(self):
-    print("CMP"),
-    self.CMP(self.getIndirectYOperand())
+    adress1, adress2, adress3, operand = self.getINDY()
+    self.CMP(operand)
     self.clock += 5
+    self.printINDY("AND", adress1, adress2, adress3, operand)
   
   def CMP(self, operand):
     if self.regA >= operand:
@@ -1563,9 +1575,10 @@ class CpuR2A03 (threading.Thread):
     self.printZP("CPY", adress, operand)
 
   def CPY_ABS(self):
-    print("CPY"),
-    self.CPY(self.getAbsoluteOperand())
+    adress, operand = self.getABS()
+    self.CPY(operand)
     self.clock += 4
+    self.printAbsolute("CPY", adress, operand)
 
   def CPY(self, operand):
     if self.regY >= operand:
