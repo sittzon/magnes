@@ -194,6 +194,7 @@ class CpuR2A03 (threading.Thread):
   def printRegisters(self):
     print('A:%(ra)02X X:%(rx)02X Y:%(ry)02X P:%(rp)02X SP:%(rs)02X CLC:%(clc)04X' %\
           {"ra":self.currentRegA, "rx":self.currentRegX, "ry":self.currentRegY, "rs":self.currentRegS, "rp":self.currentRegP,"clc":self.currentClock})
+    
   def load(self, filename):
     #print("Loading " + str(filename) + " ...")
     #Load bytes from file
@@ -280,7 +281,7 @@ class CpuR2A03 (threading.Thread):
     #print("Entering cpu thread")
     i = 0
     self.readLock.acquire()
-    while (i < 200):
+    while (i < 500):
       #Fetch opcode, print
       self.currentOpcode = self.ram[self.PC]
       print("%(pc)04X  %(op)02X" % {"pc":self.PC, "op":self.currentOpcode}),
@@ -856,16 +857,18 @@ class CpuR2A03 (threading.Thread):
     self.printINDY("AND", adress1, adress2, adress3, operand)
 
   def SBC(self, operand):
-    oldNegativeBit = self.regA & 0x80
-    self.regA -= operand + self.getCarry()
-    if oldNegativeBit != (self.regA & 0x80):
-      self.setOverflow()
-    else:
-      self.clearOverflow()
-    if self.regA < 0x00:
-      self.setCarry()
-    else:
+    temp = self.regA + operand + self.getCarry()
+    if operand & 0x80: #Negative
+      operand = ~operand + 1 #Two complement
+    self.regA -= operand - self.getCarry()
+    if -1 < temp < 256: #Inside unsigned range
       self.clearCarry()
+    else:
+      self.setCarry()
+    if -129 < self.regA < 128: #Inside two-complement range
+      self.clearOverflow()
+    else:
+      self.setOverflow()
     self.setNegativeIfNegative(self.regA)
     self.setZeroIfZero(self.regA)
     self.regA = self.regA & 0xff
@@ -1562,8 +1565,6 @@ class CpuR2A03 (threading.Thread):
       self.setCarry()
     else:
       self.clearCarry()
-    #if self.regA == operand:
-    #  self.setZero()
     self.setZeroIfZero(self.regA - operand)
     self.setNegativeIfNegative(self.regA - operand)
 
@@ -1588,9 +1589,10 @@ class CpuR2A03 (threading.Thread):
   def CPY(self, operand):
     if self.regY >= operand:
       self.setCarry()
-    if (self.regY == operand):
-      self.setZero()
-    self.setNegativeIfNegative(self.regY)
+    else:
+      self.clearCarry()
+    self.setZeroIfZero(self.regY - operand)
+    self.setNegativeIfNegative(self.regY - operand)
 
   def CPX_IMM(self):
     operand = self.getImmediateOperand()
@@ -1611,11 +1613,12 @@ class CpuR2A03 (threading.Thread):
     self.printABS("CPX", adress, operand)
 
   def CPX(self, operand):
-    if self.regX > operand:
+    if self.regX >= operand:
       self.setCarry()
-    if (self.regX == operand):
-      self.setZero()
-    self.setNegativeIfNegative(self.regX)
+    else:
+      self.clearCarry()
+    self.setZeroIfZero(self.regX - operand)
+    self.setNegativeIfNegative(self.regX - operand)
   
   def DEY(self):
     self.regY -= 1
