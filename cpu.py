@@ -332,7 +332,7 @@ class CpuR2A03 (threading.Thread):
     return returnValue;
 
   def zeroPageWrapping(self, adress):
-    return adress % 0xff
+    return adress % 0x100
 
   #Mirror memory if write to certain adresses
   def writeByte(self, adress, value):
@@ -1041,8 +1041,11 @@ class CpuR2A03 (threading.Thread):
     self.setZeroIfZero(operand)
   
   def ROR_ACC(self):
+    zerobit = self.regA & 0x01
     self.regA >>= 1
     self.regA |= self.getCarry() << 7
+    self.clearCarry()
+    self.regP |= zerobit #Carry
     self.setNegativeIfNegative(self.regA)
     self.setZeroIfZero(self.regA)
     self.getImpliedOperand()
