@@ -281,7 +281,7 @@ class CpuR2A03 (threading.Thread):
     #print("Entering cpu thread")
     i = 0
     self.readLock.acquire()
-    while (i < 600):
+    while (i < 3000):
       #Fetch opcode, print
       self.currentOpcode = self.ram[self.PC]
       print("%(pc)04X  %(op)02X" % {"pc":self.PC, "op":self.currentOpcode}),
@@ -401,9 +401,9 @@ class CpuR2A03 (threading.Thread):
     print(format(adress2, "04X") + " = " + format(operand, "02X") + "   "),
 
   def printINDY(self, op, adress1, adress2, adress3, operand):
-    print(format(adress1, "02X") + "    "),
+    print(format(adress1 & 0x00ff, "02X") + " " + format(adress1 >> 8, "02X") + " "),
     print(op + " ($" + format(adress1, "02X") + "),Y ="),
-    print(format(adress2, "04X") + " @ " + format(adress2, "04X") + " ="),
+    print(format(adress3, "04X") + " @ " + format(adress3, "04X") + " ="),
     print(format(operand, "02X") + " "),  
 
   def printJMPJSR(self, op, adress, operand):
@@ -481,9 +481,9 @@ class CpuR2A03 (threading.Thread):
 
   #AKA Indirect Indexed or post-indexed
   def getINDY(self):
-    adress1 = self.readByte(self.PC + 1)
-    adress2 = self.readWord(adress1)
-    adress3 = adress2 + self.regY
+    adress1 = self.readWord(self.PC + 1)
+    adress2 = 0#self.readWord(adress1)
+    adress3 = adress1 + self.regY
     operand = self.readByte(adress3)
     self.PC += 2
     return adress1, adress2, adress3, operand
@@ -1249,8 +1249,6 @@ class CpuR2A03 (threading.Thread):
   
   def TXS(self):
     self.getImpliedOperand()
-    self.setNegativeIfNegative(self.regX)
-    self.setZeroIfZero(self.regX)
     self.regS = self.regX
     self.clock += 2
     self.printImpliedOp("TXS")
@@ -1601,6 +1599,8 @@ class CpuR2A03 (threading.Thread):
   
   def DEY(self):
     self.regY -= 1
+    if self.regY < 0x00:
+      self.regY = 256 + self.regY
     self.setZeroIfZero(self.regY)
     self.setNegativeIfNegative(self.regY)
     self.getImpliedOperand()
@@ -1620,11 +1620,9 @@ class CpuR2A03 (threading.Thread):
     self.printImpliedOp("INY")
   
   def DEX(self):
-    oldNegativeBit = self.regX & 0x80
     self.regX -= 1
-    if (oldNegativeBit != (self.regX & 0x80)):
-      self.setOverflow()
-    self.regX &= 0xff
+    if self.regX < 0x00:
+      self.regX = 256 + self.regX
     self.setZeroIfZero(self.regX)
     self.setNegativeIfNegative(self.regX)
     self.getImpliedOperand()
@@ -1645,9 +1643,9 @@ class CpuR2A03 (threading.Thread):
 
   def DEC_ZP(self):
     adress, operand = self.getZP()
-    print("DEC"),
     self.DEC(adress, operand)
     self.clock += 5
+    self.printZP("DEC", adress, operand)
 
   def DEC_ZPX(self):
     adress, operand = self.getZPX()
