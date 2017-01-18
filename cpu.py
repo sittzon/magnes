@@ -852,7 +852,6 @@ class CpuR2A03 (threading.Thread):
   def SBC(self, operand):
     self.ADC(~operand & 0xff)
 
-  #Hack implementation!
   def JMP_ABS(self):
     adress = self.readWord(self.PC + 1)
     self.PC += 3
@@ -869,7 +868,6 @@ class CpuR2A03 (threading.Thread):
   def JMP(self, operand):
     self.PC = operand
 
-  #Hack implementation!
   def JSR(self):
     adress = self.readWord(self.PC + 1)
     self.PC += 2
@@ -889,6 +887,7 @@ class CpuR2A03 (threading.Thread):
  
   def RTI(self):
     self.regP = self.popStack()
+    self.regP |= 0x20 #TODO: why set this bit
     self.PC = self.popStack()
     self.PC += self.popStack() << 8
     self.clock += 6
@@ -1083,7 +1082,8 @@ class CpuR2A03 (threading.Thread):
     self.setZeroIfZero(operand)
 
   def LSR_ACC(self):
-    self.regP |= (self.regA & 0x01)
+    self.clearCarry()
+    self.regP |= self.regA & 0x01
     self.regA >>= 1
     self.setNegativeIfNegative(self.regA)
     self.setZeroIfZero(self.regA)
@@ -1124,7 +1124,8 @@ class CpuR2A03 (threading.Thread):
     self.setZeroIfZero(operand)
 
   def ASL_ACC(self):
-    self.regP |= ((self.regA & 0x80) >> 7)
+    self.clearCarry()
+    self.regP |= (self.regA & 0x80) >> 7
     self.regA <<= 1
     self.regA &= 0xff
     self.setNegativeIfNegative(self.regA)
