@@ -2,3 +2,4 @@
 ppu.pyc
 cpu.pyc
 .DS_Store
+tests/temp.log
