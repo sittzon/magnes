@@ -513,10 +513,9 @@ class CpuR2A03 (threading.Thread):
   def clearNegative(self):
     self.regP &= 0x7f
   def setNegativeIfNegative(self, operand):
+    self.clearNegative()
     if (operand & 0x80):
       self.setNegative()
-    else:
-      self.clearNegative()
 
   def setOverflow(self):
     self.regP |= 0x40
@@ -551,10 +550,9 @@ class CpuR2A03 (threading.Thread):
   def getZero(self):
     return (self.regP & 0x02) >> 1
   def setZeroIfZero(self, operand):
+    self.setZero()
     if operand:
       self.clearZero()
-    else:
-      self.setZero()
   def clearZero(self):
     self.regP &= 0xfd
 
@@ -792,21 +790,16 @@ class CpuR2A03 (threading.Thread):
     self.printINDY("ADC", adress1, adress2, adress3, operand)
   
   def ADC(self, operand):
-    temp = self.regA + operand + self.getCarry()
-    if operand & 0x80: #Negative
-      operand = ~operand + 1 #Two complement
-    self.regA += operand + self.getCarry() #A + M + C -> A
-    if -1 < temp < 256: #Inside unsigned range
-      self.clearCarry()
-    else:
+    sum = self.regA + operand + self.getCarry() #A + M + C -> A
+    self.clearCarry()
+    if sum > 0xff: #Outside 8-bit unsigned range
       self.setCarry()
-    if -129 < self.regA < 128: #Inside two-complement range
-      self.clearOverflow()
-    else:
-      self.setOverflow()
-    self.setNegativeIfNegative(self.regA)
+    self.clearOverflow()
+    self.regP |= (~(self.regA ^ operand) & (self.regA ^ sum) & 0x80) >> 1 #Overflow
+    self.clearNegative()
+    self.regP |= sum & 0x80 #Negative
+    self.regA = sum & 0xff
     self.setZeroIfZero(self.regA)
-    self.regA &= 0xff
 
   def SBC_IMM(self):
     operand = self.getImmediateOperand()
@@ -857,21 +850,7 @@ class CpuR2A03 (threading.Thread):
     self.printINDY("SBC", adress1, adress2, adress3, operand)
 
   def SBC(self, operand):
-    #temp = self.regA - operand - self.getCarry()
-    if operand & 0x80: #Negative
-      operand = ~operand + 1 #Two complement
-    self.regA -= operand + (0x01 ^ self.getCarry()) #A - M - ~C -> A
-    if -1 < self.regA < 256: #Inside unsigned range
-      self.setCarry()
-    else:
-      self.clearCarry()
-    if -129 < self.regA < 128: #Inside two-complement range
-      self.clearOverflow()
-    else:
-      self.setOverflow()
-    self.setNegativeIfNegative(self.regA)
-    self.setZeroIfZero(self.regA)
-    self.regA = self.regA & 0xff
+    self.ADC(~operand & 0xff)
 
   #Hack implementation!
   def JMP_ABS(self):
