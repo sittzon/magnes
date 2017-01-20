@@ -22,11 +22,9 @@ class Main:
     self.cpu.join()
     self.ppu.join()
 
-    #print("Exiting emulator")
-
 
 if len(sys.argv) == 2:
-    mainInstance = Main(str(sys.argv[1]))
+  mainInstance = Main(str(sys.argv[1]))
 else:
-    mainInstance = Main('tests/nestest.nes')
+  mainInstance = Main('tests/nestest.nes')
 mainInstance.start()

@@ -1,5 +1,6 @@
 import threading
-import cpu
+import pygame
+from pygame.locals import *
 
 class PpuR2C02 (threading.Thread):
   def __init__(self, memory, writeLock, readLock):
@@ -11,17 +12,38 @@ class PpuR2C02 (threading.Thread):
     self.ramSize = 64*1024 #10kB PPU internal RAM, 64kB adressable
     self.ram = [0]*self.ramSize
 
-    #256*240 pixels
+    self.clock = 0
+    self.evenOddFrame = 0
+
     #8*8 pixel tilemap -> tilemap[32][32]
 
     #palette table
 
+    #Display init
+    pygame.init()
+    size = width, height = 256, 240
+    grey = 128,128,128
+
+    surface = pygame.display.set_mode(size)
+    surface.fill(grey)
+    self.pxarray = pygame.PixelArray(surface)
+    pygame.display.flip()
+
   def run(self):
-    self.readLock.acquire()
-    #print("Entering ppu thread")
-    #print("PPU: Ram at 0xc000:" + str(format(self.sharedMemory[0xc000], "02x")))
-    #print("Exiting ppu thread")
-    self.readLock.release()
+    #32, 8-pixel-tiles/frame -> 256 y-pixels/frame + 6 dummy lines
+    #256 x-pixels
+    i = 1 # i = Number of frames
+    while i > 0:
+      for visibleScanline in range (0,240):
+        self.drawVisibleScanLine(visibleScanline)
+      self.postRender() #Renders 240-260
+      self.preRender() #Renders 261
+
+      i -= 1
+      self.evenOddFrame = ~self.evenOddFrame + 2 #Toggle even/odd
+
+      # Render frame
+      pygame.display.flip()
 
   def powerUp(self):
     pass
@@ -50,11 +72,16 @@ class PpuR2C02 (threading.Thread):
   #+--------- Generate an NMI at the start of the
   #           vertical blanking interval (0: off; 1: on)
   def writePPUCTRL(self, value):
+    self.readLock.acquire()
     for i in range(0x2000, 0x4000, 8):
       self.sharedMemory[i] = value
+    self.readLock.release()
 
   def readPPUCTRL(self):
-    return self.sharedMemory[0x2000]
+    self.readLock.acquire()
+    r = self.sharedMemory[0x2000]
+    self.readLock.release()
+    return r
 
   #$2001 - PPUMASK [BGRs bMmG]
             #Color emphasis (BGR), sprite enable (s), 
@@ -73,11 +100,16 @@ class PpuR2C02 (threading.Thread):
   #|+-------- Emphasize green*
   #+--------- Emphasize blue*
   def writePPUMASK(self, value):
+    self.readLock.acquire()
     for i in range(0x2001, 0x4000, 8):
       self.sharedMemory[i] = value
+    self.readLock.release()
 
   def readPPUMASK(self):
-    return self.sharedMemory[0x2001]
+    self.readLock.acquire()
+    r = self.sharedMemory[0x2001]
+    self.readLock.release()
+    return r
 
   #$2002 - PPUSTATUS [VSO- ---]
             #vblank (V), sprite 0 hit (S), 
@@ -104,29 +136,44 @@ class PpuR2C02 (threading.Thread):
   #           line); cleared after reading $2002 and at dot 1 of the
   #           pre-render line.
   def writePPUSTATUS(self, value):
+    self.readLock.acquire()
     for i in range(0x2002, 0x4000, 8):
       self.sharedMemory[i] = value
+    self.readLock.release()
 
   def readPPUSTATUS(self):
-    return self.sharedMemory[0x2002]
+    self.readLock.acquire()
+    r = self.sharedMemory[0x2002]
+    self.readLock.release()
+    return r
 
   #$2003 - OAMADDR [aaaa aaaa]
             #OAM read/write address
   def writeOAMADRR(self, value):
+    self.readLock.acquire()
     for i in range(0x2003, 0x4000, 8):
       self.sharedMemory[i] = value
+    self.readLock.release()
 
   def readOAMADDR(self):
-    return self.sharedMemory[0x2003]
+    self.readLock.acquire()
+    r = self.sharedMemory[0x2003]
+    self.readLock.release()
+    return r
 
   #$2004 - OAMDATA [dddd dddd]
             #OAM data read/write
   def writeOAMDATA(self, value):
+    self.readLock.acquire()
     for i in range(0x2004, 0x4000, 8):
       self.sharedMemory[i] = value
+    self.readLock.release()
 
   def readOAMDATA(self):
-    return self.sharedMemory[0x2004]
+    self.readLock.acquire()
+    r = self.sharedMemory[0x2004]
+    self.readLock.release()
+    return r
 
   #$2005 - PPUSCROLL [xxxx xxxx]
             #Fine scroll position (two writes: X, Y)
@@ -137,35 +184,88 @@ class PpuR2C02 (threading.Thread):
   #       |+- 1: Add 256 to the X scroll position
   #       +-- 1: Add 240 to the Y scroll position
   def writePPUSCROLL(self, value):
+    self.readLock.acquire()
     for i in range(0x2005, 0x4000, 8):
       self.sharedMemory[i] = value
+    self.readLock.release()
 
   def readPPUSCROLL(self):
-    return self.sharedMemory[0x2005]
+    self.readLock.acquire()
+    r = self.sharedMemory[0x2005]
+    self.readLock.release()
+    return r
 
   #$2006 - PPUADDR [aaaa aaaa]
             #PPU read/write address (two writes: MSB, LSB)
   def writePPUADDR(self, value):
+    self.readLock.acquire()
     for i in range(0x2006, 0x4000, 8):
       self.sharedMemory[i] = value
+    self.readLock.release()
 
   def readPPUADDR(self):
-    return self.sharedMemory[0x2006]
+    self.readLock.acquire()
+    r = self.sharedMemory[0x2006]
+    self.readLock.release()
+    return r
 
   #$2006 - PPUDATA [dddd dddd]
             #PPU data read/write
   def writePPUDATA(self, value):
+    self.readLock.acquire()
     for i in range(0x2007, 0x4000, 8):
       self.sharedMemory[i] = value
+    self.readLock.release()
 
   def readPPUDATA(self):
-    return self.sharedMemory[0x2007]
+    self.readLock.acquire()
+    r = self.sharedMemory[0x2007]
+    self.readLock.release()
+    return r
 
   #$4014 - OAMDMA [aaaa aaaa]
             #OAM DMA high address
   def writeOAMDMA(self, value):
+    self.readLock.acquire()
     self.sharedMemory[0x4014] = value
+    self.readLock.release()
 
   def readOAMDMA(self):
-    return self.sharedMemory[0x4014]
+    self.readLock.acquire()
+    r = self.sharedMemory[0x4014]
+    self.readLock.release()
+    return r
 
+
+  #----------------------------------------------------------------------
+  # LOGIC
+  #----------------------------------------------------------------------
+  def drawVisibleScanLine(self, scanline):
+    #1 Scanline lasts for 341PPU clock cycles, with each clock cycle producing one pixel. 
+    #1 CPU cycle = 3 PPU Cycles
+    
+    for pixelNo in range(0,256):
+      #Fetch background tile data - 2bits/pixel
+
+      #fine_x selects a bit
+
+      #Mux with priority sprite
+
+      #Draw pixel
+      self.readLock.acquire()
+      self.pxarray[pixelNo, scanline] = pygame.Color(255, 0, scanline)
+      self.readLock.release()
+
+      #Update
+      pass
+
+    self.clock += 341
+    #self.readLock.acquire()
+    #print(scanline)
+    #self.readLock.release()
+
+  def postRender(self):
+    self.clock += 341
+
+  def preRender(self):
+    self.clock += 341

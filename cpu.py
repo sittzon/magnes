@@ -280,9 +280,9 @@ class CpuR2A03 (threading.Thread):
   def run(self):
     #print("Entering cpu thread")
     i = 0
-    self.readLock.acquire()
     while (i < 1200):
       #Fetch opcode, print
+      self.readLock.acquire()
       self.currentOpcode = self.ram[self.PC]
       print("%(pc)04X  %(op)02X" % {"pc":self.PC, "op":self.currentOpcode}),
       #Save current registers for output
@@ -298,12 +298,12 @@ class CpuR2A03 (threading.Thread):
         self.ops[format(self.currentOpcode, '#04x')]()
         #Print registers
         self.printRegisters()
+        self.readLock.release()
       except KeyError:
         print("Key ", format(self.currentOpcode, '#04x'), " not found")
 
-      i += 1
 
-    self.readLock.release()
+      i += 1
 
     #print("Exiting cpu thread")
 
@@ -1439,13 +1439,13 @@ class CpuR2A03 (threading.Thread):
 
   def STA_INDX(self):
     adress1, adress2, adress3, operand = self.getINDX()
-    self.STA(adress2)
+    self.STA(adress3)
     self.clock += 6
     self.printINDX("STA", adress1, adress2, adress3, operand)
 
   def STA_INDY(self):
     adress1, adress2, adress3, operand = self.getINDY()
-    self.STA(adress1)
+    self.STA(adress3)
     self.clock += 6
     self.printINDY("STA", adress1, adress2, adress3, operand)
 
