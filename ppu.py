@@ -34,6 +34,7 @@ class PpuR2C02 (threading.Thread):
     #256 x-pixels
     i = 1 # i = Number of frames
     while i > 0:
+      #Get sprite ram (OAM)
       for visibleScanline in range (0,240):
         self.drawVisibleScanLine(visibleScanline)
       self.postRender() #Renders 240-260
@@ -244,6 +245,7 @@ class PpuR2C02 (threading.Thread):
     #1 Scanline lasts for 341PPU clock cycles, with each clock cycle producing one pixel. 
     #1 CPU cycle = 3 PPU Cycles
     
+    self.readLock.acquire()
     for pixelNo in range(0,256):
       #Fetch background tile data - 2bits/pixel
 
@@ -252,12 +254,10 @@ class PpuR2C02 (threading.Thread):
       #Mux with priority sprite
 
       #Draw pixel
-      self.readLock.acquire()
       self.pxarray[pixelNo, scanline] = pygame.Color(255, 0, scanline)
-      self.readLock.release()
 
       #Update
-      pass
+    self.readLock.release()
 
     self.clock += 341
     #self.readLock.acquire()
