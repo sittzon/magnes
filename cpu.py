@@ -1,5 +1,6 @@
 import threading
 import sys
+import binascii
 
 class CpuR2A03 (threading.Thread):
   def __init__(self, memory, writeLock, readLock):
@@ -203,8 +204,9 @@ class CpuR2A03 (threading.Thread):
     try:
       byte = f.read(1)
       i = 0
-      while byte != "":
-        tempRam[i] = int(byte.encode("hex"), 16)
+      while byte:
+        x = binascii.hexlify(byte)
+        tempRam[i] = int(str(x,'ascii'), 16)
         byte = f.read(1)
         i += 1
     finally:
