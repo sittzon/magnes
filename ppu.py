@@ -2,6 +2,16 @@ import threading
 import pygame
 from pygame.locals import *
 
+#Address range Size  Description
+#$0000-$0FFF $1000 Pattern table 0
+#$1000-$1FFF $1000 Pattern Table 1
+#$2000-$23FF $0400 Nametable 0
+#$2400-$27FF $0400 Nametable 1
+#$2800-$2BFF $0400 Nametable 2
+#$2C00-$2FFF $0400 Nametable 3
+#$3000-$3EFF $0F00 Mirrors of $2000-$2EFF
+#$3F00-$3F1F $0020 Palette RAM indexes
+#$3F20-$3FFF $00E0 Mirrors of $3F00-$3F1F
 class PpuR2C02 (threading.Thread):
   def __init__(self, memory, writeLock, readLock):
     threading.Thread.__init__(self)
@@ -15,7 +25,7 @@ class PpuR2C02 (threading.Thread):
     self.clock = 0
     self.evenOddFrame = 0
 
-    #8*8 pixel tilemap -> tilemap[32][32]
+    #8*8 pixel tilemap -> tilemap[32][30]
 
     #palette table
 
@@ -23,28 +33,71 @@ class PpuR2C02 (threading.Thread):
     pygame.init()
     size = width, height = 256, 240
     grey = 128,128,128
+    red = 255,0,0
 
     surface = pygame.display.set_mode(size)
-    surface.fill(grey)
+    surface.fill(red)
     self.pxarray = pygame.PixelArray(surface)
     pygame.display.flip()
 
+  def displayNameTable(self):
+    self.ctrl = self.readPPUCTRL()
+    self.ppumask = self.readPPUMASK()
+    self.scroll = self.readPPUSCROLL()
+
+    self.ntno = (self.ctrl & 0x3)*0x400
+    self.ptno = ((self.ctrl & 0x10) >> 4)*0x1000
+
+    #First 960 bytes are control for cell, attribute table is last 64 bytes
+    self.nametable = [0]*0x400 #1024 byte nametable
+    i = 0
+    self.readLock.acquire()
+    for address in range(0x2000,0x2400):
+      self.nametable[i] = self.sharedMemory[address + self.ntno]
+      if self.nametable[i] != 0:
+        print(self.nametable[i])
+      i += 1
+    self.readLock.release()
+
+    #Draw pixels
+    for tile_y in range(0,240,8):
+      for tile_x in range(0,256,8):
+        for x in range(8):
+          for y in range(8):
+            self.pxarray[tile_x+x, tile_y+y] = pygame.Color(self.nametable[tile_x >> 8 + (tile_y >> 8)*32], 0, 0)
+
+    pygame.display.flip()
+
   def run(self):
-    #32, 8-pixel-tiles/frame -> 256 y-pixels/frame + 6 dummy lines
-    #256 x-pixels
-    i = 1 # i = Number of frames
-    while i > 0:
-      #Get sprite ram (OAM)
-      for visibleScanline in range (0,240):
-        self.drawVisibleScanLine(visibleScanline)
-      self.postRender() #Renders 240-260
-      self.preRender() #Renders 261
+    #30, 8-pixel-tiles/frame -> 240 y-pixels/frame + 6 dummy lines
+    #32, 8-pixel-tiles/frame -> 256 x-pixels/frame
+    
+    #Get sprite ram (OAM)
+    #for visibleScanline in range (0,240):
+    #  self.drawVisibleScanLine(visibleScanline)
+    #self.postRender() #Renders 240-260
+    #self.preRender() #Renders 261
 
-      i -= 1
-      self.evenOddFrame = ~self.evenOddFrame + 2 #Toggle even/odd
+    #self.evenOddFrame = ~self.evenOddFrame + 2 #Toggle even/odd
 
-      # Render frame
-      pygame.display.flip()
+    # Render frame
+    #pygame.display.flip()
+
+    self.displayNameTable()
+
+  def readTile(self):
+    #Conceptually, the PPU does this 33 times for each scanline:
+        #Fetch a nametable entry from $2000-$2FBF.
+        #Fetch the corresponding attribute table entry from $23C0-$2FFF and increment the current VRAM address within the same row.
+        #Fetch the low-order byte of an 8x1 pixel sliver of pattern table from $0000-$0FF7 or $1000-$1FF7.
+        #Fetch the high-order byte of this sliver from an address 8 bytes higher.
+        #Turn the attribute data and the pattern table data into palette indices, and combine them with data from sprite data using priority.
+
+    #Read NT (Name Table) Byte
+    #Read AT (Attribute Table) Byte
+    #Read low BG tile Byte
+    #Read high BG tile Byte
+    pass
 
   def powerUp(self):
     pass
@@ -241,6 +294,19 @@ class PpuR2C02 (threading.Thread):
   #----------------------------------------------------------------------
   # LOGIC
   #----------------------------------------------------------------------
+
+  def readNTByte(self):
+    pass
+  
+  def readATByte(self):
+    pass
+
+  def readLowBGTileByte(self):
+    pass
+
+  def readHighBGTileByte(self):
+    pass
+
   def drawVisibleScanLine(self, scanline):
     #1 Scanline lasts for 341PPU clock cycles, with each clock cycle producing one pixel. 
     #1 CPU cycle = 3 PPU Cycles
@@ -254,7 +320,7 @@ class PpuR2C02 (threading.Thread):
       #Mux with priority sprite
 
       #Draw pixel
-      self.pxarray[pixelNo, scanline] = pygame.Color(255, 0, scanline)
+      self.pxarray[pixelNo, scanline] = pygame.Color(255, pixelNo, scanline)
 
       #Update
     self.readLock.release()

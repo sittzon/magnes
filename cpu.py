@@ -11,7 +11,7 @@ class CpuR2A03 (threading.Thread):
     clockHertz = 1.773447*1000000 #PAL
 
     self.ramSize = 64*1024 #2kB CPU internal RAM, 64kB adressable
-    self.ram = [0]*self.ramSize
+    #self.ram = [0]*self.ramSize
 
     #self.sharedMemory = memory
     self.ram = memory
@@ -259,7 +259,6 @@ class CpuR2A03 (threading.Thread):
         self.ram[0x8000:0x8000+offset16kb] = tempRam[offsetPrg+self.offsetTrainer:offset16kb-offsetPrg-self.offsetTrainer]
         self.ram[0xc000:0xc000+offset16kb] = tempRam[offsetPrg+self.offsetTrainer+offset16kb:2*offset16kb-offsetPrg-self.offsetTrainer]
 
-
     #self.sharedMemory = self.ram[:]
     #print("Loading complete.")
     
@@ -280,13 +279,11 @@ class CpuR2A03 (threading.Thread):
     self.PC = 0x8000 #Program counter, 16 bit (0x8000 start of prg-rom)
 
   def run(self):
-    #print("Entering cpu thread")
-    i = 0
-    while (i < 1200):
+    for i in range(0,1000):
       #Fetch opcode, print
       self.readLock.acquire()
       self.currentOpcode = self.ram[self.PC]
-      print("%(pc)04X  %(op)02X" % {"pc":self.PC, "op":self.currentOpcode}),
+      print("%(pc)04X %(op)02X" % {"pc":self.PC, "op":self.currentOpcode}, end="")
       #Save current registers for output
       self.currentRegA = self.regA
       self.currentRegX = self.regX
@@ -300,14 +297,10 @@ class CpuR2A03 (threading.Thread):
         self.ops[format(self.currentOpcode, '#04x')]()
         #Print registers
         self.printRegisters()
-        self.readLock.release()
       except KeyError:
         print("Key ", format(self.currentOpcode, '#04x'), " not found")
 
-
-      i += 1
-
-    #print("Exiting cpu thread")
+      self.readLock.release()
 
   def reset(self):
     self.clock = 0
@@ -359,58 +352,58 @@ class CpuR2A03 (threading.Thread):
     return high + low
 
   def printImpliedOp(self, op):
-    print("       " + op + "                            "),
+    print("      " + op + "                            ", end="")
 
   def printImmOp(self, op, operand):
-    print(format(operand, "02X") + "    "),
-    print(op + " #$" + format(operand, "02X") + "                       "),
+    print(format(operand, "02X") + "    ", end="")
+    print(op + " #$" + format(operand, "02X") + "                       ", end="")
 
   def printRelativeOp(self, op, adress, operand):
-    print(format(operand, "02X") + "    "),
-    print(op + " $" + format(adress, "04X") + "                      "),
+    print(format(operand, "02X") + "    ", end="")
+    print(op + " $" + format(adress, "04X") + "                      ", end="")
 
   def printZP(self, op, zpadress, operand):
-    print(format(zpadress,"02X") + "    "),
-    print(op + " $" + format(zpadress,"02X") + " ="),
-    print(format(operand, "02X") + "                   "),
+    print(format(zpadress,"02X") + "    ", end="")
+    print(op + " $" + format(zpadress,"02X") + " = ", end="")
+    print(format(operand, "02X") + "                   ", end="")
 
   def printZPX(self, op, adress, operand):
     print(op + " $" + format(adress, "02X") + ",X @ " + format(adress, "02X")),
-    print(format(operand, "02X") + "                   "),
+    print(format(operand, "02X") + "                   ", end="")
 
   def printZPY(self, op, adress, operand):
     print(op + " $" + format(adress, "02X") + ",Y @ " + format(adress, "02X")),
-    print(format(operand, "02X") + "                   "),
+    print(format(operand, "02X") + "                   ", end="")
 
   def printABS(self, op, adress, operand):
-    print(format(adress & 0x00ff, "02X") + " " + format(adress >> 8, "02X") + " "),
-    print(op + " $" + format(adress, "04X") + " ="),
-    print(format(operand, "02X") + "                 "),
+    print(format(adress & 0x00ff, "02X") + " " + format(adress >> 8, "02X") + " ", end="")
+    print(op + " $" + format(adress, "04X") + " = ", end="")
+    print(format(operand, "02X") + "                 ", end="")
 
   def printABSX(self, op, adress, operand):
     print(op + " $" + format(adress, "02X") + ",X @ " + format(adress, "02X")),
-    print(format(operand, "02X") + "                   "),
+    print(format(operand, "02X") + "                   ", end="")
 
   def printABSY(self, op, adress, operand):
     print(op + " $" + format(adress, "04X") + ",Y @ " + format(adress, "02X")),
 
   def printIND(self, op, adress, operand):
-    print(op + " ($" + format(adress, "04X") + ")"),
+    print("      " + op + " ($" + format(adress, "04X") + ")                    ", end="")
 
   def printINDX(self, op, adress1, adress2, adress3, operand):
-    print(format(adress1, "02X") + "    "),
-    print(op + " ($" + format(adress1, "02X") + ",X) @ " + format(adress2, "02X") + " ="),
-    print(format(adress3, "04X") + " = " + format(operand, "02X") + "   "),
+    print(format(adress1, "02X") + "    ", end="")
+    print(op + " ($" + format(adress1, "02X") + ",X) @ " + format(adress2, "02X") + " = ", end="")
+    print(format(adress3, "04X") + " = " + format(operand, "02X") + "   ", end="")
 
   def printINDY(self, op, adress1, adress2, adress3, operand):
-    print(format(adress1 & 0x00ff, "02X") + " " + format(adress1 >> 8, "02X") + " "),
-    print(op + " ($" + format(adress1, "02X") + "),Y ="),
-    print(format(adress3, "04X") + " @ " + format(adress3, "04X") + " ="),
-    print(format(operand, "02X") + " "),  
+    print(format(adress1 & 0x00ff, "02X") + " " + format(adress1 >> 8, "02X") + " ", end="")
+    print(op + " ($" + format(adress1, "02X") + "),Y =", end="")
+    print(format(adress3, "04X") + " @ " + format(adress3, "04X") + " =", end="")
+    print(format(operand, "02X") + " ", end="")  
 
   def printJMPJSR(self, op, adress, operand):
-    print(format(operand & 0x00ff, "02X") + " " + format(operand >> 8, "02X") + " "),
-    print(op + " $" + format(adress, "04X") + "                      "),
+    print(format(operand & 0x00ff, "02X") + " " + format(operand >> 8, "02X") + " ", end="")
+    print(op + " $" + format(adress, "04X") + "                      ", end="")
 
   #----------------------------------------------------------------------
   # ADRESSING MODES
@@ -1039,6 +1032,7 @@ class CpuR2A03 (threading.Thread):
     operand = self.readByte(adress)
     operand <<= 1
     operand |= self.getCarry()
+    operand &= 0xff
     self.writeByte(adress, operand)
     self.setNegativeIfNegative(operand)
     self.setZeroIfZero(operand)
@@ -1168,6 +1162,7 @@ class CpuR2A03 (threading.Thread):
     operand = self.readByte(adress)
     self.regP |= ((operand & 0x80) >> 7)
     operand <<= 1
+    operand &= 0xff
     self.writeByte(adress, operand)
     self.setNegativeIfNegative(operand)
     self.setZeroIfZero(operand)
