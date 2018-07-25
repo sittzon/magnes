@@ -1066,7 +1066,7 @@ class CpuR2A03 (threading.Thread):
   
   def ROR_ZP(self):
     adress, operand = self.getZP()
-    self.ROR(operand)
+    self.ROR(adress)
     self.clock += 5
     self.printZP("ROR", adress, operand)
   
@@ -1090,6 +1090,8 @@ class CpuR2A03 (threading.Thread):
   
   def ROR(self, adress):
     operand = self.readByte(adress)
+    self.clearCarry()
+    self.regP |= operand & 0x01
     operand >>= 1
     operand |= self.getCarry() << 7
     self.writeByte(adress, operand)
