@@ -1573,7 +1573,7 @@ class CpuR2A03 (threading.Thread):
 
   def CPY_ZP(self):
     adress, operand = self.getZP()
-    self.CPY(adress)
+    self.CPY(operand)
     self.clock += 3
     self.printZP("CPY", adress, operand)
 
