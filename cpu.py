@@ -1693,6 +1693,7 @@ class CpuR2A03 (threading.Thread):
 
   def DEC(self, adress, operand):
     operand -= 1
+    operand &= 0xff
     self.writeByte(adress, operand)
     self.setZeroIfZero(operand)
     self.setNegativeIfNegative(operand)
