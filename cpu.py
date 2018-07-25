@@ -1021,7 +1021,7 @@ class CpuR2A03 (threading.Thread):
 
   def ROL_ZP(self):
     adress, operand = self.getZP()
-    self.ROL(operand)
+    self.ROL(adress)
     self.clock += 5
     self.printZP("ROL", adress, operand)
 
@@ -1045,9 +1045,10 @@ class CpuR2A03 (threading.Thread):
 
   def ROL(self, adress):
     operand = self.readByte(adress)
+    bit = (operand & 0x80) >> 7
     operand <<= 1
-    operand |= self.getCarry()
     operand &= 0xff
+    operand += bit
     self.writeByte(adress, operand)
     self.setNegativeIfNegative(operand)
     self.setZeroIfZero(operand)
