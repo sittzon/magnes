@@ -1486,7 +1486,7 @@ class CpuR2A03 (threading.Thread):
 
   def STA_ABSY(self):
     adress1, adress2, operand = self.getABSY()
-    self.STA(operand)
+    self.STA(adress2)
     self.clock += 5
     self.printABSY("STA", adress1, adress2, operand)
 
