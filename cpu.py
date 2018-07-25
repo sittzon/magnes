@@ -283,7 +283,7 @@ class CpuR2A03 (threading.Thread):
     self.PC = pc;
 
   def run(self):
-    for i in range(0,2000):
+    for i in range(0,3000):
       #Fetch opcode, print
       self.readLock.acquire()
       self.currentOpcode = self.ram[self.PC]
@@ -1108,7 +1108,7 @@ class CpuR2A03 (threading.Thread):
 
   def LSR_ZP(self):
     adress, operand = self.getZP()
-    self.LSR(operand)
+    self.LSR(adress)
     self.clock += 5
     self.printZP("LSR", adress, operand)
 
@@ -1132,11 +1132,18 @@ class CpuR2A03 (threading.Thread):
 
   def LSR(self, adress):
     operand = self.readByte(adress)
+    self.clearCarry()
     self.regP |= (operand & 0x01)
+    #print("operand: " + str(operand))
+    #print("operand & 0x01: " + str(operand & 0x01))
     operand >>= 1
+    #print("operand >>= 1: " + str(operand))
     self.writeByte(adress, operand)
     self.setNegativeIfNegative(operand)
-    self.setZeroIfZero(operand)
+    self.clearZero()
+    if (operand == 0):
+      self.setZero()
+    #self.setZeroIfZero(operand)
 
   def ASL_ACC(self):
     self.clearCarry()
