@@ -376,11 +376,12 @@ class CpuR2A03 (threading.Thread):
     print(format(operand, "02X") + "                   ", end="")
 
   def printZPX(self, op, adress, operand):
-    print(op + " $" + format(adress, "02X") + ",X @ " + format(adress, "02X")),
-    print(format(operand, "02X") + "                   ", end="")
+    print(format(adress, "02X") + "    ", end="")
+    print(op + " $" + format(adress, "02X") + ",X @ " + format(adress, "02X") + " = ", end="")
+    print(format(operand, "02X") + "            ", end="")
 
   def printZPY(self, op, adress, operand):
-    print(op + " $" + format(adress, "02X") + ",Y @ " + format(adress, "02X")),
+    print(op + " $" + format(adress, "02X") + ",Y @ " + format(adress, "02X"), end="")
     print(format(operand, "02X") + "                   ", end="")
 
   def printABS(self, op, adress, operand):
@@ -389,11 +390,13 @@ class CpuR2A03 (threading.Thread):
     print(format(operand, "02X") + "                 ", end="")
 
   def printABSX(self, op, adress, operand):
-    print(op + " $" + format(adress, "02X") + ",X @ " + format(adress, "02X")),
+    print(op + " $" + format(adress, "02X") + ",X @ " + format(adress, "02X"), end="")
     print(format(operand, "02X") + "                   ", end="")
 
-  def printABSY(self, op, adress, operand):
-    print(op + " $" + format(adress, "04X") + ",Y @ " + format(adress, "02X")),
+  def printABSY(self, op, adress1, adress2, operand):    
+    print(format(adress1 & 0x00ff, "02X") + " " + format((adress1 & 0xff00) >> 8, "02X") + " ", end="")
+    print(op + " $" + format(adress1, "04X") + ",Y @ " + format(adress2, "04X") + " = ", end="")
+    print(format(operand, "02X") + "        ", end="")
 
   def printIND(self, op, adress, operand):
     print(format(adress & 0x00ff, "02X") + " " + format((adress & 0xff00) >> 8, "02X") + " ", end="")
@@ -437,14 +440,20 @@ class CpuR2A03 (threading.Thread):
     return adress, operand
 
   def getZPX(self):
-    adressZeroPage = self.readByte(self.readByte(self.PC +1)) + self.regX
-    adress = self.zeroPageWrapping(adressZeroPage)
-    operand = self.readByte(adress)
+    adress1 = self.readByte(self.PC + 1)
+    adress2 = self.readByte(adress1 + self.regX)
+    operand = self.zeroPageWrapping(adress2)
+    #adressZeroPage = self.readByte(self.readByte(self.PC + 1)) + self.regX
+    #adress = self.zeroPageWrapping(adressZeroPage)
+    #operand = self.readByte(adress)
+    #print("adress1: ", format(adress1,"02X"))
+    #print("adress2: ", format(adress2,"02X"))
+    #print("operand: ", format(operand,"02X"))
     self.PC += 2
-    return adress, operand
+    return adress1, operand
 
   def getZPY(self):
-    adressZeroPage = self.readByte(self.readByte(self.PC +1)) + self.regY
+    adressZeroPage = self.readByte(self.readByte(self.PC + 1)) + self.regY
     adress = self.zeroPageWrapping(adressZeroPage)
     operand = self.readByte(adress)
     self.PC += 2
@@ -463,10 +472,11 @@ class CpuR2A03 (threading.Thread):
     return adress, operand
 
   def getABSY(self):
-    adress = self.readWord(self.PC + 1) + self.regY
-    operand = self.readByte(adress)
+    adress1 = self.readWord(self.PC + 1)
+    adress2 = (adress1 + self.regY) & 0xffff
+    operand = self.readByte(adress2)
     self.PC += 3
-    return adress, operand
+    return adress1, adress2, operand
 
   def getIND(self):
     adress1 = self.readWord(self.PC + 1)
@@ -628,10 +638,10 @@ class CpuR2A03 (threading.Thread):
     self.printABSX("AND", adress, operand)
 
   def AND_ABSY(self):
-    adress, operand = self.getABSY()
+    adress1, adress2, operand = self.getABSY()
     self.AND(operand)
     self.clock += 4
-    self.printABSY("AND", adress, operand)
+    self.printABSY("AND", adress1, adress2, operand)
 
   def AND_INDX(self):
     adress1, adress2, adress3, operand = self.getINDX()
@@ -681,10 +691,10 @@ class CpuR2A03 (threading.Thread):
     self.printABSX("ORA", adress, operand)
 
   def ORA_ABSY(self):
-    adress, operand = self.getABSY()
+    adress1, adress2, operand = self.getABSY()
     self.ORA(operand)
     self.clock += 4
-    self.printABSY("ORA", adress, operand)
+    self.printABSY("ORA", adress1, adress2, operand)
 
   def ORA_INDX(self):
     adress1, adress2, adress3, operand = self.getINDX()
@@ -734,10 +744,10 @@ class CpuR2A03 (threading.Thread):
     self.printABSX("EOR", adress, operand)
 
   def EOR_ABSY(self):
-    adress, operand = self.getABSY()
+    adress1, adress2, operand = self.getABSY()
     self.EOR(operand)
     self.clock += 4
-    self.printABSY("EOR", adress, operand)
+    self.printABSY("EOR", adress1, adress2, operand)
 
   def EOR_INDX(self):
     adress1, adress2, adress3, operand = self.getINDX()
@@ -787,10 +797,10 @@ class CpuR2A03 (threading.Thread):
     self.printABSX("ADC", adress, operand)
   
   def ADC_ABSY(self):
-    adress, operand = self.getABSY()
+    adress1, adress2, operand = self.getABSY()
     self.ADC(operand)
     self.clock += 4
-    self.printABSY("ADC", adress, operand)
+    self.printABSY("ADC", adress1, adress2, operand)
   
   def ADC_INDX(self):
     adress1, adress2, adress3, operand = self.getINDX()
@@ -847,10 +857,10 @@ class CpuR2A03 (threading.Thread):
     self.printABSX("SBC", adress, operand)
 
   def SBC_ABSY(self):
-    adress, operand = self.getABSY()
+    adress1, adress2, operand = self.getABSY()
     self.SBC(operand)
     self.clock += 4
-    self.printABSY("SBC", adress, operand)
+    self.printABSY("SBC", adress1, adress2, operand)
 
   def SBC_INDX(self):
     adress1, adress2, adress3, operand = self.getINDX()
@@ -1387,10 +1397,10 @@ class CpuR2A03 (threading.Thread):
     self.printZPY("LDX", adress, operand)
 
   def LDX_ABSY(self):
-    adress, operand = self.getABSY()
+    adress1, adress2, operand = self.getABSY()
     self.LDX(operand)
     self.clock += 4
-    self.printABSY("LDX", adress, operand)
+    self.printABSY("LDX", adress1, adress2, operand)
 
   def LDX(self, operand):
     self.setNegativeIfNegative(operand)
@@ -1434,10 +1444,10 @@ class CpuR2A03 (threading.Thread):
     self.printZPX("LDA", adress, operand)
 
   def LDA_ABSY(self):
-    adress, operand = self.getABSY()
+    adress1, adress2, operand = self.getABSY()
     self.LDA(operand)
     self.clock += 4
-    self.printABSY("LDA", adress, operand)
+    self.printABSY("LDA", adress1, adress2, operand)
 
   def LDA_ABSX(self):
     adress, operand = self.getABSX()
@@ -1475,10 +1485,10 @@ class CpuR2A03 (threading.Thread):
     self.printABSX("STA", adress, operand)
 
   def STA_ABSY(self):
-    adress, operand = self.getABSY()
-    self.STA(adress)
+    adress1, adress2, operand = self.getABSY()
+    self.STA(operand)
     self.clock += 5
-    self.printABSY("STA", adress, operand)
+    self.printABSY("STA", adress1, adress2, operand)
 
   def STA_INDX(self):
     adress1, adress2, adress3, operand = self.getINDX()
@@ -1568,10 +1578,10 @@ class CpuR2A03 (threading.Thread):
     self.printABSX("CMP", adress, operand)
   
   def CMP_ABSY(self):
-    adress, operand = self.getABSY()
+    adress1, adress2, operand = self.getABSY()
     self.CMP(operand)
     self.clock += 4
-    self.printABSY("CMP", adress, operand)
+    self.printABSY("CMP", adress1, adress2, operand)
   
   def CMP_INDX(self):
     adress1, adress2, adress3, operand = self.getINDX()
