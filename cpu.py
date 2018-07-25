@@ -211,6 +211,7 @@ class CpuR2A03 (threading.Thread):
         i += 1
     finally:
       f.close()
+      #print(str(i) + " = 0x" + format(i, "04X") + " bytes loaded")
       
     #Verify 'NES' + MS-DOS end-of-file
     if (tempRam[0] != 0x4e) or (tempRam[1] != 0x45) or (tempRam[2] != 0x53) or (tempRam[3] != 0x1a):
@@ -278,12 +279,15 @@ class CpuR2A03 (threading.Thread):
     self.regP = 0x24 #Processor status flag bits, 8 bit
     self.PC = 0x8000 #Program counter, 16 bit (0x8000 start of prg-rom)
 
+  def startPC(self, pc):
+    self.PC = pc;
+
   def run(self):
-    for i in range(0,1000):
+    for i in range(0,2000):
       #Fetch opcode, print
       self.readLock.acquire()
       self.currentOpcode = self.ram[self.PC]
-      print("%(pc)04X %(op)02X" % {"pc":self.PC, "op":self.currentOpcode}, end="")
+      print("%(pc)04X %(op)02X " % {"pc":self.PC, "op":self.currentOpcode}, end="")
       #Save current registers for output
       self.currentRegA = self.regA
       self.currentRegX = self.regX
@@ -301,6 +305,10 @@ class CpuR2A03 (threading.Thread):
         print("Key ", format(self.currentOpcode, '#04x'), " not found")
 
       self.readLock.release()
+
+  def dumpRomData(self):
+    for i in range(0xffff):
+      print(format(i, "04X") + ": " + format(self.ram[i], "02X"))
 
   def reset(self):
     self.clock = 0
@@ -467,10 +475,17 @@ class CpuR2A03 (threading.Thread):
     return adress1, operand
 
   #AKA Indexed Indirect or pre-indexed
+  #    Indirect addressing modes do not handle page boundary crossing at all.
+  #    When the parameter's low byte is $FF, the effective address wraps
+  #    around and the CPU fetches high byte from $xx00 instead of $xx00+$0100.
+  #    E.g. JMP ($01FF) fetches PCL from $01FF and PCH from $0100,
+  #    and LDA ($FF),Y fetches the base address from $FF and $00.
   def getINDX(self):
     adress1 = self.readByte(self.PC + 1)
-    adress2 = adress1 + self.regX
-    adress3 = self.readWord(adress2)
+    adress2 = (adress1 + self.regX) & 0xff
+    tempLow = self.ram[adress2]
+    tempHigh = self.ram[(adress2 + 1) & 0xff] << 8
+    adress3 = tempHigh + tempLow
     operand = self.readByte(adress3)
     self.PC += 2
     return adress1, adress2, adress3, operand
@@ -1359,7 +1374,7 @@ class CpuR2A03 (threading.Thread):
 
   def LDA_ZP(self):
     adress, operand = self.getZP()
-    self.LDA(adress)
+    self.LDA(operand)
     self.clock += 3
     self.printZP("LDA", adress, operand)
 
