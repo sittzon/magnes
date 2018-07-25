@@ -396,7 +396,8 @@ class CpuR2A03 (threading.Thread):
     print(op + " $" + format(adress, "04X") + ",Y @ " + format(adress, "02X")),
 
   def printIND(self, op, adress, operand):
-    print("      " + op + " ($" + format(adress, "04X") + ")                    ", end="")
+    print(format(adress & 0x00ff, "02X") + " " + format((adress & 0xff00) >> 8, "02X") + " ", end="")
+    print(op + " ($" + format(adress, "04X") + ") = " + format(operand, "04X") + "             ", end="")
 
   def printINDX(self, op, adress1, adress2, adress3, operand):
     print(format(adress1, "02X") + "    ", end="")
@@ -472,7 +473,7 @@ class CpuR2A03 (threading.Thread):
     adress2 = self.readWord(adress1)
     operand = self.readByte(adress2)
     self.PC += 3
-    return adress1, operand
+    return adress1, adress2
 
   #AKA Indexed Indirect or pre-indexed
   #    Indirect addressing modes do not handle page boundary crossing at all.
@@ -695,7 +696,7 @@ class CpuR2A03 (threading.Thread):
     adress1, adress2, adress3, operand = self.getINDY()
     self.ORA(operand)
     self.clock += 5
-    self.printINDY("AND", adress1, adress2, adress3, operand)
+    self.printINDY("ORA", adress1, adress2, adress3, operand)
 
   def ORA(self, operand):
     self.regA = operand | self.regA
@@ -748,7 +749,7 @@ class CpuR2A03 (threading.Thread):
     adress1, adress2, adress3, operand = self.getINDY()
     self.EOR(operand)
     self.clock += 5
-    self.printINDY("AND", adress1, adress2, adress3, operand)
+    self.printINDY("EOR", adress1, adress2, adress3, operand)
 
   def EOR(self, operand):
     self.regA = operand ^ self.regA
