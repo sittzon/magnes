@@ -1598,9 +1598,9 @@ class CpuR2A03 (threading.Thread):
 
   def CPX_ZP(self):
     adress, operand = self.getZP()
-    self.CPX(adress)
+    self.CPX(operand)
     self.clock += 3
-    self.printZP("LDA", adress, operand)
+    self.printZP("CPX", adress, operand)
 
   def CPX_ABS(self):
     adress, operand = self.getABS()
