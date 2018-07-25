@@ -193,7 +193,7 @@ class CpuR2A03 (threading.Thread):
   #----------------------------------------------------------------------
 
   def printRegisters(self):
-    print('A:%(ra)02X X:%(rx)02X Y:%(ry)02X P:%(rp)02X SP:%(rs)02X CLC:%(clc)04X' %\
+    print('A:%(ra)02X X:%(rx)02X Y:%(ry)02X P:%(rp)02X SP:%(rs)02X CYC:%(clc)4d' %\
           {"ra":self.currentRegA, "rx":self.currentRegX, "ry":self.currentRegY, "rs":self.currentRegS, "rp":self.currentRegP,"clc":self.currentClock})
     
   def load(self, filename):
@@ -1514,7 +1514,7 @@ class CpuR2A03 (threading.Thread):
   
   def CMP_ZP(self):
     adress, operand = self.getZP()
-    self.CMP(adress)
+    self.CMP(operand)
     self.clock += 3
     self.printZP("CMP", adress, operand)
   
@@ -1555,12 +1555,15 @@ class CpuR2A03 (threading.Thread):
     self.printINDY("CMP", adress1, adress2, adress3, operand)
   
   def CMP(self, operand):
+    self.clearCarry()
     if self.regA >= operand:
       self.setCarry()
-    else:
-      self.clearCarry()
-    self.setZeroIfZero(self.regA - operand)
-    self.setNegativeIfNegative(self.regA - operand)
+    self.clearZero()
+    if self.regA == operand:
+      self.setZero()
+    self.clearNegative()
+    if (self.regA - operand) & 0x80:
+      self.setNegative()
 
   def CPY_IMM(self):
     operand = self.getImmediateOperand()
@@ -1581,10 +1584,9 @@ class CpuR2A03 (threading.Thread):
     self.printABS("CPY", adress, operand)
 
   def CPY(self, operand):
+    self.clearCarry()
     if self.regY >= operand:
       self.setCarry()
-    else:
-      self.clearCarry()
     self.setZeroIfZero(self.regY - operand)
     self.setNegativeIfNegative(self.regY - operand)
 
