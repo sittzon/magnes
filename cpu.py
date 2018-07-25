@@ -1625,10 +1625,7 @@ class CpuR2A03 (threading.Thread):
     self.printImpliedOp("DEY")
   
   def INY(self):
-    oldNegativeBit = self.regY & 0x80
     self.regY += 1
-    if (oldNegativeBit != (self.regY & 0x80)):
-      self.setOverflow()
     self.regY &= 0xff
     self.setZeroIfZero(self.regY)
     self.setNegativeIfNegative(self.regY)
@@ -1647,10 +1644,7 @@ class CpuR2A03 (threading.Thread):
     self.printImpliedOp("DEX")
   
   def INX(self):
-    oldNegativeBit = self.regX & 0x80
     self.regX += 1
-    if (oldNegativeBit != (self.regX & 0x80)):
-      self.setOverflow()
     self.regX &= 0xff
     self.setZeroIfZero(self.regX)
     self.setNegativeIfNegative(self.regX)
@@ -1713,10 +1707,7 @@ class CpuR2A03 (threading.Thread):
     self.printABSX("INC", adress, operand)
   
   def INC(self, adress, operand):
-    oldNegativeBit = operand & 0x80
     operand += 1
-    if (oldNegativeBit != (operand & 0x80)):
-      self.setOverflow()
     operand &= 0xff
     self.writeByte(adress, operand)
     self.setZeroIfZero(operand)
