@@ -283,7 +283,7 @@ class CpuR2A03 (threading.Thread):
     self.PC = pc;
 
   def run(self):
-    for i in range(0,3000):
+    for i in range(0,5000):
       #Fetch opcode, print
       self.readLock.acquire()
       self.currentOpcode = self.ram[self.PC]
@@ -404,9 +404,9 @@ class CpuR2A03 (threading.Thread):
     print(format(adress3, "04X") + " = " + format(operand, "02X") + "   ", end="")
 
   def printINDY(self, op, adress1, adress2, adress3, operand):
-    print(format(adress1 & 0x00ff, "02X") + " " + format(adress1 >> 8, "02X") + " ", end="")
-    print(op + " ($" + format(adress1, "02X") + "),Y =", end="")
-    print(format(adress3, "04X") + " @ " + format(adress3, "04X") + " =", end="")
+    print(format(adress1, "02X") + "    ", end="")
+    print(op + " ($" + format(adress1, "02X") + "),Y = ", end="")
+    print(format(adress2, "04X") + " @ " + format(adress3, "04X") + " = ", end="")
     print(format(operand, "02X") + " ", end="")  
 
   def printJMPJSR(self, op, adress, operand):
@@ -491,10 +491,13 @@ class CpuR2A03 (threading.Thread):
     return adress1, adress2, adress3, operand
 
   #AKA Indirect Indexed or post-indexed
+  #    Zero page adress ingexeding, i.e wraparound when adress1 is over 0xff
   def getINDY(self):
-    adress1 = self.readWord(self.PC + 1)
-    adress2 = 0#self.readWord(adress1)
-    adress3 = adress1 + self.regY
+    adress1 = self.readByte(self.PC + 1)
+    low = self.ram[adress1]
+    high = self.ram[(adress1 + 1) & 0xff] << 8
+    adress2 = low + high
+    adress3 = (adress2 + self.regY) & 0xffff
     operand = self.readByte(adress3)
     self.PC += 2
     return adress1, adress2, adress3, operand
