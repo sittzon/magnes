@@ -1158,7 +1158,7 @@ class CpuR2A03 (threading.Thread):
 
   def ASL_ZP(self):
     adress, operand = self.getZP()
-    self.ASL(operand)
+    self.ASL(adress)
     self.clock += 5
     self.printZP("ASL", adress, operand)
 
@@ -1182,6 +1182,7 @@ class CpuR2A03 (threading.Thread):
 
   def ASL(self, adress):
     operand = self.readByte(adress)
+    self.clearCarry()
     self.regP |= ((operand & 0x80) >> 7)
     operand <<= 1
     operand &= 0xff
