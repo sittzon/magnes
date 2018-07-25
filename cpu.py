@@ -1090,12 +1090,14 @@ class CpuR2A03 (threading.Thread):
   
   def ROR(self, adress):
     operand = self.readByte(adress)
-    self.clearCarry()
-    self.regP |= operand & 0x01
+    tempCarry = operand & 0x01
     operand >>= 1
     operand |= self.getCarry() << 7
+    self.regP |= tempCarry
     self.writeByte(adress, operand)
-    self.setNegativeIfNegative(operand)
+    self.clearNegative()
+    if operand & 0x80:
+      self.setNegative() 
     self.setZeroIfZero(operand)
 
   def LSR_ACC(self):
