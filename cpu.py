@@ -874,9 +874,23 @@ class CpuR2A03 (threading.Thread):
     self.clock += 3
     self.printJMPJSR("JMP", adress, adress)
 
+  #AN INDIRECT JUMP MUST NEVER USE A
+  #VECTOR BEGINNING ON THE LAST BYTE
+  #OF A PAGE
+  #    For example if address $3000 contains $40, $30FF contains $80, 
+  #    and $3100 contains $50, the result of JMP ($30FF) will be a transfer of
+  #    control to $4080 rather than $5080 as you intended i.e. the 6502 took 
+  #    the low byte of the address from $30FF and the high byte from $3000. 
   def JMP_IND(self):
     adress, operand = self.getIND()
-    self.JMP(operand)
+    #Check if jump is on last byte of a page (boundary check)
+    if (adress & 0x00ff == 0xff):
+      lowAdress = self.ram[adress]
+      highAdress = self.ram[adress & 0xff00] << 8
+      newOperand = highAdress + lowAdress
+      self.JMP(newOperand)
+    else:
+      self.JMP(operand)
     self.clock += 5
     self.printIND("JMP", adress, operand);
 
