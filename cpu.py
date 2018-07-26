@@ -335,7 +335,7 @@ class CpuR2A03 (threading.Thread):
     return returnValue;
 
   def zeroPageWrapping(self, adress):
-    return adress % 0x100
+    return adress % 0x0100
 
   #Mirror memory if write to certain adresses
   def writeByte(self, adress, value):
@@ -375,9 +375,9 @@ class CpuR2A03 (threading.Thread):
     print(op + " $" + format(zpadress,"02X") + " = ", end="")
     print(format(operand, "02X") + "                   ", end="")
 
-  def printZPX(self, op, adress, operand):
-    print(format(adress, "02X") + "    ", end="")
-    print(op + " $" + format(adress, "02X") + ",X @ " + format(adress, "02X") + " = ", end="")
+  def printZPX(self, op, adress1, adress2, operand):
+    print(format(adress1, "02X") + "    ", end="")
+    print(op + " $" + format(adress1, "02X") + ",X @ " + format(adress2, "02X") + " = ", end="")
     print(format(operand, "02X") + "            ", end="")
 
   def printZPY(self, op, adress, operand):
@@ -441,23 +441,17 @@ class CpuR2A03 (threading.Thread):
 
   def getZPX(self):
     adress1 = self.readByte(self.PC + 1)
-    adress2 = self.readByte(adress1 + self.regX)
-    operand = self.zeroPageWrapping(adress2)
-    #adressZeroPage = self.readByte(self.readByte(self.PC + 1)) + self.regX
-    #adress = self.zeroPageWrapping(adressZeroPage)
-    #operand = self.readByte(adress)
-    #print("adress1: ", format(adress1,"02X"))
-    #print("adress2: ", format(adress2,"02X"))
-    #print("operand: ", format(operand,"02X"))
+    adress2 = self.zeroPageWrapping(adress1  + self.regX)
+    operand = self.readByte(adress2)
     self.PC += 2
-    return adress1, operand
+    return adress1, adress2, operand
 
   def getZPY(self):
-    adressZeroPage = self.readByte(self.readByte(self.PC + 1)) + self.regY
-    adress = self.zeroPageWrapping(adressZeroPage)
-    operand = self.readByte(adress)
+    adress1 = self.readByte(self.PC + 1)
+    adress2 = self.zeroPageWrapping(adress1 + self.regY)
+    operand = self.readByte(adress2)
     self.PC += 2
-    return adress, operand
+    return adress2, operand
 
   def getABS(self):
     adress = self.readWord(self.PC + 1)
@@ -620,10 +614,10 @@ class CpuR2A03 (threading.Thread):
     self.printZP("AND", adress, operand)
 
   def AND_ZPX(self):
-    adress, operand = self.getZPX()
+    adress1, adress2, operand = self.getZPX()
     self.AND(operand)
     self.clock += 4
-    self.printZPX("AND", adress, operand)
+    self.printZPX("AND", adress1, adress2, operand)
 
   def AND_ABS(self):
     adress, operand = self.getABS()
@@ -673,10 +667,10 @@ class CpuR2A03 (threading.Thread):
     self.printZP("ORA", adress, operand)
 
   def ORA_ZPX(self):
-    adress, operand = self.getZPX()
+    adress1, adress2, operand = self.getZPX()
     self.ORA(operand)
     self.clock += 4
-    self.printZPX("ORA", adress, operand)
+    self.printZPX("ORA", adress1, adress2, operand)
 
   def ORA_ABS(self):
     adress, operand = self.getABS()
@@ -726,10 +720,10 @@ class CpuR2A03 (threading.Thread):
     self.printZP("EOR", adress, operand)
 
   def EOR_ZPX(self):
-    adress, operand = self.getZPX()
+    adress1, adress2, operand = self.getZPX()
     self.EOR(operand)
     self.clock += 4
-    self.printZPX("EOR", adress, operand)
+    self.printZPX("EOR", adress1, adress2, operand)
 
   def EOR_ABS(self):
     adress, operand = self.getABS()
@@ -779,10 +773,10 @@ class CpuR2A03 (threading.Thread):
     self.printZP("ADC", adress, operand)
   
   def ADC_ZPX(self):
-    adress, operand = self.getZPX()
+    adress1, adress2, operand = self.getZPX()
     self.ADC(operand)
     self.clock += 4
-    self.printZPX("ADC", adress, operand)
+    self.printZPX("ADC", adress1, adress2, operand)
   
   def ADC_ABS(self):
     adress, operand = self.getABS()
@@ -839,10 +833,10 @@ class CpuR2A03 (threading.Thread):
     self.printZP("SBC", adress, operand)
 
   def SBC_ZPX(self):
-    adress, operand = self.getZPX()
+    adress1, adress2, operand = self.getZPX()
     self.SBC(operand)
     self.clock += 4
-    self.printZPX("SBC", adress, operand)
+    self.printZPX("SBC", adress1, adress2, operand)
 
   def SBC_ABS(self):
     adress, operand = self.getABS()
@@ -1054,10 +1048,10 @@ class CpuR2A03 (threading.Thread):
     self.printZP("ROL", adress, operand)
 
   def ROL_ZPX(self):
-    adress, operand = self.getZPX()
-    self.ROL(adress)
+    adress1, adress2, operand = self.getZPX()
+    self.ROL(adress2)
     self.clock += 6
-    self.printZPX("ROL", adress, operand)
+    self.printZPX("ROL", adress1, adress2, operand)
 
   def ROL_ABS(self):
     adress, operand = self.getABS()
@@ -1100,10 +1094,10 @@ class CpuR2A03 (threading.Thread):
     self.printZP("ROR", adress, operand)
   
   def ROR_ZPX(self):
-    adress, operand = self.getZPX()
-    self.ROR(adress)
+    adress1, adress2, operand = self.getZPX()
+    self.ROR(adress2)
     self.clock += 6
-    self.printZPX("ROR", adress, operand)
+    self.printZPX("ROR", adress1, adress2, operand)
   
   def ROR_ABS(self):
     adress, operand = self.getABS()
@@ -1146,10 +1140,10 @@ class CpuR2A03 (threading.Thread):
     self.printZP("LSR", adress, operand)
 
   def LSR_ZPX(self):
-    adress, operand = self.getZPX()
-    self.LSR(adress)
+    adress1, adress2, operand = self.getZPX()
+    self.LSR(adress2)
     self.clock += 6
-    self.printZPX("LSR", adress, operand)
+    self.printZPX("LSR", adress1, adress2, operand)
 
   def LSR_ABS(self):
     adress, operand = self.getABS()
@@ -1196,10 +1190,10 @@ class CpuR2A03 (threading.Thread):
     self.printZP("ASL", adress, operand)
 
   def ASL_ZPX(self):
-    adress, operand = self.getZPX()
-    self.ASL(adress)
+    adress1, adress2, operand = self.getZPX()
+    self.ASL(adress2)
     self.clock += 6
-    self.printZPX("ASL", adress, operand)
+    self.printZPX("ASL", adress1, adress2, operand)
 
   def ASL_ABS(self):
     adress, operand = self.getABS()
@@ -1356,10 +1350,10 @@ class CpuR2A03 (threading.Thread):
     self.printABS("LDY", adress, operand)
 
   def LDY_ZPX(self):
-    adress, operand = self.getZPX()
+    adress1, adress2, operand = self.getZPX()
     self.LDY(operand)
     self.clock += 4
-    self.printZPX("LDY", adress, operand)
+    self.printZPX("LDY", adress1, adress2, operand)
 
   def LDY_ABSX(self):
     adress, operand = self.getABSX()
@@ -1438,10 +1432,10 @@ class CpuR2A03 (threading.Thread):
     self.printINDY("LDA", adress1, adress2, adress3, operand)
 
   def LDA_ZPX(self):
-    adress, operand = self.getZPX()
+    adress1, adress2, operand = self.getZPX()
     self.LDA(operand)
     self.clock += 4
-    self.printZPX("LDA", adress, operand)
+    self.printZPX("LDA", adress1, adress2, operand)
 
   def LDA_ABSY(self):
     adress1, adress2, operand = self.getABSY()
@@ -1467,10 +1461,10 @@ class CpuR2A03 (threading.Thread):
     self.printZP("STA", adress, operand)
 
   def STA_ZPX(self):
-    adress, operand = self.getZPX()
-    self.STA(adress)
+    adress1, adress2, operand = self.getZPX()
+    self.STA(adress2)
     self.clock += 4
-    self.printZPX("STA", adress, operand)
+    self.printZPX("STA", adress1, adress2, operand)
 
   def STA_ABS(self):
     adress, operand = self.getABS()
@@ -1512,10 +1506,10 @@ class CpuR2A03 (threading.Thread):
     self.printZP("STY", adress, operand)
   
   def STY_ZPX(self):
-    adress, operand = self.getZPX()
-    self.STY(adress)
+    adress1, adress2, operand = self.getZPX()
+    self.STY(adress2)
     self.clock += 4
-    self.printZPX("STY", adress, operand)
+    self.printZPX("STY", adress1, adress2, operand)
   
   def STY_ABS(self):
     adress, operand = self.getABS()
@@ -1560,10 +1554,10 @@ class CpuR2A03 (threading.Thread):
     self.printZP("CMP", adress, operand)
   
   def CMP_ZPX(self):
-    adress, operand = self.getZPX()
+    adress1, adress2, operand = self.getZPX()
     self.CMP(operand)
     self.clock += 4
-    self.printZPX("CMP", adress, operand)
+    self.printZPX("CMP", adress1, adress2, operand)
   
   def CMP_ABS(self):
     adress, operand = self.getABS()
@@ -1702,10 +1696,10 @@ class CpuR2A03 (threading.Thread):
     self.printZP("DEC", adress, operand)
 
   def DEC_ZPX(self):
-    adress, operand = self.getZPX()
-    self.DEC(adress, operand)
+    adress1, adress2, operand = self.getZPX()
+    self.DEC(adress2, operand)
     self.clock += 6
-    self.printZPX("DEC", adress, operand)
+    self.printZPX("DEC", adress1, adress2, operand)
 
   def DEC_ABS(self):
     adress, operand = self.getABS()
@@ -1733,10 +1727,10 @@ class CpuR2A03 (threading.Thread):
     self.printZP("INC", adress, operand)
   
   def INC_ZPX(self):
-    adress, operand = self.getZPX()
-    self.INC(adress, operand)
+    adress1, adress2, operand = self.getZPX()
+    self.INC(adress2, operand)
     self.clock += 6
-    self.printZPX("INC", adress, operand)
+    self.printZPX("INC", adress1, adress2, operand)
   
   def INC_ABS(self):
     adress, operand = self.getABS()
