@@ -181,28 +181,36 @@ class CpuR2A03 (threading.Thread):
       '0xc4' : self.CPY_ZP,
       '0xc5' : self.CMP_ZP,
       '0xc6' : self.DEC_ZP,
+      '0xc7' : self.ILLEGAL_DCP_ZP,
       '0xc8' : self.INY,
       '0xc9' : self.CMP_IMM,
       '0xca' : self.DEX,
       '0xcc' : self.CPY_ABS,
       '0xcd' : self.CMP_ABS,
       '0xce' : self.DEC_ABS,
+      '0xcf' : self.ILLEGAL_DCP_ABS,
       '0xd0' : self.BNE,
       '0xd1' : self.CMP_INDY,
+      '0xd3' : self.ILLEGAL_DCP_INDY,
       '0xd5' : self.CMP_ZPX,
       '0xd4' : self.ILLEGAL_NOP_ZPX,
       '0xd6' : self.DEC_ZPX,
+      '0xd7' : self.ILLEGAL_DCP_ZPX,
       '0xd8' : self.CLD,
       '0xd9' : self.CMP_ABSY,
       '0xda' : self.ILLEGAL_NOP_IMP,
+      '0xdb' : self.ILLEGAL_DCP_ABSY,
       '0xdc' : self.ILLEGAL_NOP_ABSX,
       '0xdd' : self.CMP_ABSX,
       '0xde' : self.DEC_ABSX,
+      '0xdf' : self.ILLEGAL_DCP_ABSX,
       '0xe0' : self.CPX_IMM,
       '0xe1' : self.SBC_INDX,
+      '0xe3' : self.ILLEGAL_ISB_INDX,
       '0xe4' : self.CPX_ZP,
       '0xe5' : self.SBC_ZP,
       '0xe6' : self.INC_ZP,
+      '0xe7' : self.ILLEGAL_ISB_ZP,
       '0xe8' : self.INX,
       '0xe9' : self.SBC_IMM,
       '0xea' : self.NOP,
@@ -210,17 +218,22 @@ class CpuR2A03 (threading.Thread):
       '0xec' : self.CPX_ABS,
       '0xed' : self.SBC_ABS,
       '0xee' : self.INC_ABS,
+      '0xef' : self.ILLEGAL_ISB_ABS,
       '0xf0' : self.BEQ,
       '0xf1' : self.SBC_INDY,
-      '0xf5' : self.SBC_ZPX,
+      '0xf3' : self.ILLEGAL_ISB_INDY,
       '0xf4' : self.ILLEGAL_NOP_ZPX,
+      '0xf5' : self.SBC_ZPX,
       '0xf6' : self.INC_ZPX,
+      '0xf7' : self.ILLEGAL_ISB_ZPX,
       '0xf8' : self.SED,
       '0xf9' : self.SBC_ABSY,
       '0xfa' : self.ILLEGAL_NOP_IMP,
+      '0xfb' : self.ILLEGAL_ISB_ABSY,
       '0xfc' : self.ILLEGAL_NOP_ABSX,
       '0xfd' : self.SBC_ABSX,
-      '0xfe' : self.INC_ABSX
+      '0xfe' : self.INC_ABSX,
+      '0xff' : self.ILLEGAL_ISB_ABSX
       }
 
   #----------------------------------------------------------------------
@@ -1877,12 +1890,97 @@ class CpuR2A03 (threading.Thread):
     self.clock += 2
     self.printImmOp("*SBC", operand)
 
-  def ILLEGAL_DCP_INDX(self):
-    adress1, adress2, adress3, operand = self.getINDX()
-    self.DEC(adress3, operand)
+  def ILLEGAL_DCP(self, adress, operand):
+    self.DEC(adress, operand)
     self.CMP(operand - 1)
     self.clearZero()
     if operand == 0x00:
       self.setZero()
+
+  def ILLEGAL_DCP_ZP(self):
+    adress1, adress2, operand = self.getZP(0)
+    self.ILLEGAL_DCP(adress2, operand)
+    self.clock += 5
+    self.printZP("*DCP", adress2, operand)
+
+  def ILLEGAL_DCP_ZPX(self):
+    adress1, adress2, operand = self.getZP(self.regX)
+    self.ILLEGAL_DCP(adress2, operand)
     self.clock += 6
+    self.printZPX("*DCP", adress1, adress2, operand)
+
+  def ILLEGAL_DCP_ABS(self):
+    adress1, adress2, operand = self.getABS(0)
+    self.ILLEGAL_DCP(adress2, operand)
+    self.clock += 6
+    self.printABS("*DCP", adress2, operand)
+
+  def ILLEGAL_DCP_ABSY(self):
+    adress1, adress2, operand = self.getABS(self.regY)
+    self.ILLEGAL_DCP(adress2, operand)
+    self.clock += 7
+    self.printABSY("*DCP", adress1, adress2, operand)
+
+  def ILLEGAL_DCP_ABSX(self):
+    adress1, adress2, operand = self.getABS(self.regX)
+    self.ILLEGAL_DCP(adress2, operand)
+    self.clock += 7
+    self.printABSX("*DCP", adress1, adress2, operand)
+
+  def ILLEGAL_DCP_INDX(self):
+    adress1, adress2, adress3, operand = self.getINDX()
+    self.ILLEGAL_DCP(adress3, operand)
+    self.clock += 8
     self.printINDX("*DCP", adress1, adress2, adress3, operand)
+
+  def ILLEGAL_DCP_INDY(self):
+    adress1, adress2, adress3, operand = self.getINDY()
+    self.ILLEGAL_DCP(adress3, operand)
+    self.clock += 8
+    self.printINDY("*DCP", adress1, adress2, adress3, operand)
+
+  def ILLEGAL_ISB(self, adress, operand):
+    self.INC(adress, operand)
+    self.SBC(operand + 1)
+
+  def ILLEGAL_ISB_ZP(self):
+    adress1, adress2, operand = self.getZP(0)
+    self.ILLEGAL_ISB(adress2, operand)
+    self.clock += 5
+    self.printZP("*ISB", adress2,operand)
+
+  def ILLEGAL_ISB_ZPX(self):
+    adress1, adress2, operand = self.getZP(self.regX)
+    self.ILLEGAL_ISB(adress2, operand)
+    self.clock += 6
+    self.printZPX("*ISB", adress1, adress2, operand)
+
+  def ILLEGAL_ISB_ABS(self):
+    adress1, adress2, operand = self.getABS(0)
+    self.ILLEGAL_ISB(adress2, operand)
+    self.clock += 6
+    self.printABS("*ISB", adress2, operand)
+
+  def ILLEGAL_ISB_ABSY(self):
+    adress1, adress2, operand = self.getABS(self.regY)
+    self.ILLEGAL_ISB(adress2, operand)
+    self.clock += 7
+    self.printABSY("*ISB", adress1, adress2, operand)
+
+  def ILLEGAL_ISB_INDX(self):
+    adress1, adress2, adress3, operand = self.getINDX()
+    self.ILLEGAL_ISB(adress3, operand)
+    self.clock += 8
+    self.printINDX("*ISB", adress1, adress2, adress3, operand)
+
+  def ILLEGAL_ISB_INDY(self):
+    adress1, adress2, adress3, operand = self.getINDY()
+    self.ILLEGAL_ISB(adress3, operand)
+    self.clock += 8
+    self.printINDY("*ISB", adress1, adress2, adress3, operand)
+
+  def ILLEGAL_ISB_ABSX(self):
+    adress1, adress2, operand = self.getABS(self.regX)
+    self.ILLEGAL_ISB(adress2, operand)
+    self.clock += 7
+    self.printABSX("*ISB", adress1, adress2, operand)
