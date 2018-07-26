@@ -1879,14 +1879,10 @@ class CpuR2A03 (threading.Thread):
 
   def ILLEGAL_DCP_INDX(self):
     adress1, adress2, adress3, operand = self.getINDX()
-    toWrite = (operand - 1) & 0xff
-    #print("toWrite: " + format(toWrite, "02X"), end=";")
-    #self.clearCarry()
-    #if toWrite > 0xff: #Outside 8-bit unsigned range
-    #  self.setCarry()
-    self.clearNegative()
-    #self.regP |= (operand - 1) & 0x80 #Negative
-    self.setZeroIfZero(operand)
-    self.writeByte(adress3, toWrite)
+    self.DEC(adress3, operand)
+    self.CMP(operand - 1)
+    self.clearZero()
+    if operand == 0x00:
+      self.setZero()
     self.clock += 6
     self.printINDX("*DCP", adress1, adress2, adress3, operand)
