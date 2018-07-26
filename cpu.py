@@ -37,6 +37,7 @@ class CpuR2A03 (threading.Thread):
     self.ops = {
       '0x00' : self.BRK,
       '0x01' : self.ORA_INDX,
+      '0x03' : self.ILLEGAL_SLO_INDX,
       '0x04' : self.ILLEGAL_NOP_ZP,
       '0x05' : self.ORA_ZP,
       '0x06' : self.ASL_ZP,
@@ -1984,3 +1985,13 @@ class CpuR2A03 (threading.Thread):
     self.ILLEGAL_ISB(adress2, operand)
     self.clock += 7
     self.printABSX("*ISB", adress1, adress2, operand)
+
+  def ILLEGAL_SLO(self, adress, operand):
+    self.ASL(adress)
+    self.ORA(operand)
+
+  def ILLEGAL_SLO_INDX(self):
+    adress1, adress2, adress3, operand = self.getINDX()
+    self.ILLEGAL_SLO(adress3, operand)
+    self.clock += 8
+    self.printINDX("*SLO", adress1, adress2, adress3, operand)
