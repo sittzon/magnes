@@ -135,11 +135,13 @@ class CpuR2A03 (threading.Thread):
       '0x8c' : self.STY_ABS,
       '0x8d' : self.STA_ABS,
       '0x8e' : self.STX_ABS,
+      '0x8f' : self.SAX_UNOFFICIAL_ABS,
       '0x90' : self.BCC,
       '0x91' : self.STA_INDY,
       '0x94' : self.STY_ZPX,
       '0x95' : self.STA_ZPX,
       '0x96' : self.STX_ZPY,
+      '0x97' : self.SAX_UNOFFICIAL_ZPY,
       '0x98' : self.TYA,
       '0x99' : self.STA_ABSY,
       '0x9a' : self.TXS,
@@ -203,6 +205,7 @@ class CpuR2A03 (threading.Thread):
       '0xe8' : self.INX,
       '0xe9' : self.SBC_IMM,
       '0xea' : self.NOP,
+      '0xeb' : self.SBC_UNOFFICIAL_IMM,
       '0xec' : self.CPX_ABS,
       '0xed' : self.SBC_ABS,
       '0xee' : self.INC_ABS,
@@ -725,12 +728,32 @@ class CpuR2A03 (threading.Thread):
     self.clock += 6
     self.printINDX("*SAX", adress1, adress2, adress3, operand)
 
+  def SAX_UNOFFICIAL_ABS(self):
+    adress, operand = self.getABS()
+    toStore = self.regA & self.regX
+    self.writeByte(adress, toStore)
+    self.clock += 4
+    self.printABS("*SAX", adress, operand)
+
   def SAX_UNOFFICIAL_ZP(self):
     adress, operand = self.getZP()
     toStore = self.regA & self.regX
     self.writeByte(adress, toStore)
     self.clock += 3
-    self.printZP("*SAX", adress, operand)    
+    self.printZP("*SAX", adress, operand)
+
+  def SAX_UNOFFICIAL_ZPY(self):
+    adress1, adress2, operand = self.getZPY()
+    toStore = self.regA & self.regX
+    self.writeByte(adress2, toStore)
+    self.clock += 4
+    self.printZPY("*SAX", adress1, adress2, operand)
+
+  def SBC_UNOFFICIAL_IMM(self):
+    operand = self.getImmediateOperand()
+    self.SBC(operand)
+    self.clock += 2
+    self.printImmOp("*SBC", operand)
 
   def AND_IMM(self):
     operand = self.getImmediateOperand()
