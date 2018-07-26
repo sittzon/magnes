@@ -535,11 +535,11 @@ class CpuR2A03 (threading.Thread):
 
   def getRelativeOperand(self):
     operand = self.readByte(self.PC + 1)
-    if (operand & 0x80): #Negative adress
-      operand = ~operand + 1 #Bitwise flip and add 1 -> two-complement
-      adress = self.PC - operand + 2
-    else:
-      adress = self.PC + operand + 2
+    #if (operand & 0x80): #Negative adress
+    #  operand = ~operand + 1 #Bitwise flip and add 1 -> two-complement
+    #  adress = self.PC - operand + 2
+    #else:
+    adress = self.PC + operand + 2
     return adress, operand
    	
   #----------------------------------------------------------------------
