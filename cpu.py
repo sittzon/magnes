@@ -48,17 +48,22 @@ class CpuR2A03 (threading.Thread):
       '0x0c' : self.ILLEGAL_NOP_ABS,
       '0x0d' : self.ORA_ABS,
       '0x0e' : self.ASL_ABS,
+      '0x0f' : self.ILLEGAL_SLO_ABS,
       '0x10' : self.BPL,
       '0x11' : self.ORA_INDY,
+      '0x13' : self.ILLEGAL_SLO_INDY,
       '0x14' : self.ILLEGAL_NOP_ZPX,
       '0x15' : self.ORA_ZPX,
       '0x16' : self.ASL_ZPX,
+      '0x17' : self.ILLEGAL_SLO_ZPX,
       '0x18' : self.CLC,
       '0x19' : self.ORA_ABSY,
       '0x1a' : self.ILLEGAL_NOP_IMP,
+      '0x1b' : self.ILLEGAL_SLO_ABSY,
       '0x1c' : self.ILLEGAL_NOP_ABSX,
       '0x1d' : self.ORA_ABSX,
       '0x1e' : self.ASL_ABSX,
+      '0x1f' : self.ILLEGAL_SLO_ABSX,
       '0x20' : self.JSR,
       '0x21' : self.AND_INDX,
       '0x24' : self.BIT_ZP,
@@ -2003,3 +2008,33 @@ class CpuR2A03 (threading.Thread):
     self.ILLEGAL_SLO(adress2)
     self.clock += 5
     self.printZP("*SLO", adress2, operand)
+
+  def ILLEGAL_SLO_ABS(self):
+    adress1, adress2, operand = self.getABS(0)
+    self.ILLEGAL_SLO(adress2)
+    self.clock += 6
+    self.printABS("*SLO", adress2, operand)
+
+  def ILLEGAL_SLO_INDY(self):
+    adress1, adress2, adress3, operand = self.getINDY()
+    self.ILLEGAL_SLO(adress3)
+    self.clock += 8
+    self.printINDY("*SLO", adress1, adress2, adress3, operand)
+
+  def ILLEGAL_SLO_ZPX(self):
+    adress1, adress2, operand = self.getZP(self.regX)
+    self.ILLEGAL_SLO(adress2)
+    self.clock += 6
+    self.printZPX("*SLO", adress1, adress2, operand)
+
+  def ILLEGAL_SLO_ABSY(self):
+    adress1, adress2, operand = self.getABS(self.regY)
+    self.ILLEGAL_SLO(adress2)
+    self.clock += 7
+    self.printABSY("*SLO", adress1, adress2, operand)
+
+  def ILLEGAL_SLO_ABSX(self):
+    adress1, adress2, operand = self.getABS(self.regX)
+    self.ILLEGAL_SLO(adress2)
+    self.clock += 7
+    self.printABSX("*SLO", adress1, adress2, operand)
