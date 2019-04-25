@@ -1986,12 +1986,13 @@ class CpuR2A03 (threading.Thread):
     self.clock += 7
     self.printABSX("*ISB", adress1, adress2, operand)
 
-  def ILLEGAL_SLO(self, adress, operand):
+  def ILLEGAL_SLO(self, adress):
     self.ASL(adress)
+    operand = self.readByte(adress)
     self.ORA(operand)
 
   def ILLEGAL_SLO_INDX(self):
     adress1, adress2, adress3, operand = self.getINDX()
-    self.ILLEGAL_SLO(adress3, operand)
+    self.ILLEGAL_SLO(adress3)
     self.clock += 8
     self.printINDX("*SLO", adress1, adress2, adress3, operand)
