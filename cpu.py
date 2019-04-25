@@ -41,6 +41,7 @@ class CpuR2A03 (threading.Thread):
       '0x04' : self.ILLEGAL_NOP_ZP,
       '0x05' : self.ORA_ZP,
       '0x06' : self.ASL_ZP,
+      '0x07' : self.ILLEGAL_SLO_ZP,      
       '0x08' : self.PHP,
       '0x09' : self.ORA_IMM,
       '0x0a' : self.ASL_ACC,
@@ -332,7 +333,7 @@ class CpuR2A03 (threading.Thread):
     self.PC = pc;
 
   def run(self):
-    for i in range(0,7000):
+    for i in range(0,8000):
       #Fetch opcode, print
       self.readLock.acquire()
       self.currentOpcode = self.ram[self.PC]
@@ -1996,3 +1997,9 @@ class CpuR2A03 (threading.Thread):
     self.ILLEGAL_SLO(adress3)
     self.clock += 8
     self.printINDX("*SLO", adress1, adress2, adress3, operand)
+
+  def ILLEGAL_SLO_ZP(self):
+    adress1, adress2, operand = self.getZP(0)
+    self.ILLEGAL_SLO(adress2)
+    self.clock += 5
+    self.printZP("*SLO", adress2, operand)
