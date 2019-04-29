@@ -95,26 +95,33 @@ class CpuR2A03 (threading.Thread):
       '0x3f' : self.ILLEGAL_RLA_ABSX,
       '0x40' : self.RTI,
       '0x41' : self.EOR_INDX,
+      '0x43' : self.ILLEGAL_SRE_INDX,
       '0x44' : self.ILLEGAL_NOP_ZP,
       '0x45' : self.EOR_ZP,
       '0x46' : self.LSR_ZP,
+      '0x47' : self.ILLEGAL_SRE_ZP,
       '0x48' : self.PHA,
       '0x49' : self.EOR_IMM,
       '0x4a' : self.LSR_ACC,
       '0x4c' : self.JMP_ABS,
       '0x4d' : self.EOR_ABS,
       '0x4e' : self.LSR_ABS,
+      '0x4f' : self.ILLEGAL_SRE_ABS,
       '0x50' : self.BVC,
       '0x51' : self.EOR_INDY,
+      '0x53' : self.ILLEGAL_SRE_INDY,
       '0x54' : self.ILLEGAL_NOP_ZPX,
       '0x55' : self.EOR_ZPX,
       '0x56' : self.LSR_ZPX,
+      '0x57' : self.ILLEGAL_SRE_ZPX,
       '0x58' : self.CLI,
       '0x59' : self.EOR_ABSY,
       '0x5a' : self.ILLEGAL_NOP_IMP,
+      '0x5b' : self.ILLEGAL_SRE_ABSY,
       '0x5c' : self.ILLEGAL_NOP_ABSX,
       '0x5d' : self.EOR_ABSX,
       '0x5e' : self.LSR_ABSX,
+      '0x5f' : self.ILLEGAL_SRE_ABSX,
       '0x60' : self.RTS,
       '0x61' : self.ADC_INDX,
       '0x64' : self.ILLEGAL_NOP_ZP,
@@ -345,7 +352,7 @@ class CpuR2A03 (threading.Thread):
     self.PC = pc;
 
   def run(self):
-    for i in range(0,8000):
+    for i in range(0,9000):
       #Fetch opcode, print
       self.readLock.acquire()
       self.currentOpcode = self.ram[self.PC]
@@ -2049,7 +2056,6 @@ class CpuR2A03 (threading.Thread):
     self.printABSX("*SLO", adress1, adress2, operand)
 
   def ILLEGAL_RLA(self, adress):
-    operandbefore = self.readByte(adress)
     self.ROL(adress)
     operand = self.readByte(adress)
     self.AND(operand)
@@ -2095,3 +2101,50 @@ class CpuR2A03 (threading.Thread):
     self.ILLEGAL_RLA(adress2)
     self.clock += 7
     self.printABSX("*RLA", adress1, adress2, operand)
+
+  def ILLEGAL_SRE(self, adress):
+    self.LSR(adress)
+    operand = self.readByte(adress)
+    self.EOR(operand)
+
+  def ILLEGAL_SRE_INDX(self):
+    adress1, adress2, adress3, operand = self.getINDX()
+    self.ILLEGAL_SRE(adress3)
+    self.clock += 8
+    self.printINDX("*SRE", adress1, adress2, adress3, operand)
+
+  def ILLEGAL_SRE_ZP(self):
+    adress1, adress2, operand = self.getZP(0)
+    self.ILLEGAL_SRE(adress2)
+    self.clock += 5
+    self.printZP("*SRE", adress2, operand)
+
+  def ILLEGAL_SRE_ABS(self):
+    adress1, adress2, operand = self.getABS(0)
+    self.ILLEGAL_SRE(adress2)
+    self.clock += 6
+    self.printABS("*SRE", adress2, operand)
+
+  def ILLEGAL_SRE_INDY(self):
+    adress1, adress2, adress3, operand = self.getINDY()
+    self.ILLEGAL_SRE(adress3)
+    self.clock += 8
+    self.printINDY("*SRE", adress1, adress2, adress3, operand)
+
+  def ILLEGAL_SRE_ZPX(self):
+    adress1, adress2, operand = self.getZP(self.regX)
+    self.ILLEGAL_SRE(adress2)
+    self.clock += 6
+    self.printZPX("*SRE", adress1, adress2, operand)
+
+  def ILLEGAL_SRE_ABSY(self):
+    adress1, adress2, operand = self.getABS(self.regY)
+    self.ILLEGAL_SRE(adress2)
+    self.clock += 7
+    self.printABSY("*SRE", adress1, adress2, operand)
+
+  def ILLEGAL_SRE_ABSX(self):
+    adress1, adress2, operand = self.getABS(self.regX)
+    self.ILLEGAL_SRE(adress2)
+    self.clock += 7
+    self.printABSX("*SRE", adress1, adress2, operand)
