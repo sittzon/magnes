@@ -66,26 +66,33 @@ class CpuR2A03 (threading.Thread):
       '0x1f' : self.ILLEGAL_SLO_ABSX,
       '0x20' : self.JSR,
       '0x21' : self.AND_INDX,
+      '0x23' : self.ILLEGAL_RLA_INDX,
       '0x24' : self.BIT_ZP,
       '0x25' : self.AND_ZP,
       '0x26' : self.ROL_ZP,
+      '0x27' : self.ILLEGAL_RLA_ZP,
       '0x28' : self.PLP,
       '0x29' : self.AND_IMM,
       '0x2a' : self.ROL_ACC,
       '0x2c' : self.BIT_ABS,
       '0x2d' : self.AND_ABS,
       '0x2e' : self.ROL_ABS,
+      '0x2f' : self.ILLEGAL_RLA_ABS,
       '0x30' : self.BMI,
       '0x31' : self.AND_INDY,
+      '0x33' : self.ILLEGAL_RLA_INDY,
       '0x34' : self.ILLEGAL_NOP_ZPX,
       '0x35' : self.AND_ZPX,
       '0x36' : self.ROL_ZPX,
+      '0x37' : self.ILLEGAL_RLA_ZPX,
       '0x38' : self.SEC,
       '0x39' : self.AND_ABSY,
       '0x3a' : self.ILLEGAL_NOP_IMP,
+      '0x3b' : self.ILLEGAL_RLA_ABSY,
       '0x3c' : self.ILLEGAL_NOP_ABSX,
       '0x3d' : self.AND_ABSX,
       '0x3e' : self.ROL_ABSX,
+      '0x3f' : self.ILLEGAL_RLA_ABSX,
       '0x40' : self.RTI,
       '0x41' : self.EOR_INDX,
       '0x44' : self.ILLEGAL_NOP_ZP,
@@ -1098,10 +1105,12 @@ class CpuR2A03 (threading.Thread):
     bit = (operand & 0x80) >> 7
     operand <<= 1
     operand &= 0xff
-    operand += bit
+    operand |= self.getCarry()
     self.writeByte(adress, operand)
     self.setNegativeIfNegative(operand)
     self.setZeroIfZero(operand)
+    self.clearCarry()
+    self.regP |= bit
   
   def ROR_ACC(self):
     zerobit = self.regA & 0x01
@@ -2038,3 +2047,51 @@ class CpuR2A03 (threading.Thread):
     self.ILLEGAL_SLO(adress2)
     self.clock += 7
     self.printABSX("*SLO", adress1, adress2, operand)
+
+  def ILLEGAL_RLA(self, adress):
+    operandbefore = self.readByte(adress)
+    self.ROL(adress)
+    operand = self.readByte(adress)
+    self.AND(operand)
+
+  def ILLEGAL_RLA_INDX(self):
+    adress1, adress2, adress3, operand = self.getINDX()
+    self.ILLEGAL_RLA(adress3)
+    self.clock += 8
+    self.printINDX("*RLA", adress1, adress2, adress3, operand)
+
+  def ILLEGAL_RLA_ZP(self):
+    adress1, adress2, operand = self.getZP(0)
+    self.ILLEGAL_RLA(adress2)
+    self.clock += 5
+    self.printZP("*RLA", adress2, operand)
+
+  def ILLEGAL_RLA_ABS(self):
+    adress1, adress2, operand = self.getABS(0)
+    self.ILLEGAL_RLA(adress2)
+    self.clock += 6
+    self.printABS("*RLA", adress2, operand)
+
+  def ILLEGAL_RLA_INDY(self):
+    adress1, adress2, adress3, operand = self.getINDY()
+    self.ILLEGAL_RLA(adress3)
+    self.clock += 8
+    self.printINDY("*RLA", adress1, adress2, adress3, operand)
+
+  def ILLEGAL_RLA_ZPX(self):
+    adress1, adress2, operand = self.getZP(self.regX)
+    self.ILLEGAL_RLA(adress2)
+    self.clock += 6
+    self.printZPX("*RLA", adress1, adress2, operand)
+
+  def ILLEGAL_RLA_ABSY(self):
+    adress1, adress2, operand = self.getABS(self.regY)
+    self.ILLEGAL_RLA(adress2)
+    self.clock += 7
+    self.printABSY("*RLA", adress1, adress2, operand)
+
+  def ILLEGAL_RLA_ABSX(self):
+    adress1, adress2, operand = self.getABS(self.regX)
+    self.ILLEGAL_RLA(adress2)
+    self.clock += 7
+    self.printABSX("*RLA", adress1, adress2, operand)
